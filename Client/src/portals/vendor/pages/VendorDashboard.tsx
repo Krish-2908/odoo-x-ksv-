@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/shared/Navbar";
+import Navbar, { type NavItem } from "@/components/shared/Navbar";
 import {
   FileText,
   SendHorizontal,
@@ -15,51 +15,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", active: true },
-  { label: "Open RFQs" },
-  { label: "My Quotations" },
-  { label: "Purchase Orders" },
-  { label: "My Profile" },
-];
-
-const KPI_CARDS = [
-  {
-    label: "Open RFQ Invitations",
-    value: "0",
-    sub: "Awaiting your response",
-    icon: FileText,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-  },
-  {
-    label: "Quotations Submitted",
-    value: "0",
-    sub: "Across all RFQs",
-    icon: SendHorizontal,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-  },
-  {
-    label: "Quotations Selected",
-    value: "0",
-    sub: "Won bids",
-    icon: CheckCircle,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-  },
-  {
-    label: "Active Purchase Orders",
-    value: "0",
-    sub: "To be fulfilled",
-    icon: ShoppingCart,
-    color: "text-violet-600",
-    bg: "bg-violet-50",
-    border: "border-violet-100",
-  },
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", path: "/vendor", active: true },
+  { label: "Open RFQs", path: "/vendor/rfqs" },
+  { label: "My Quotations", path: "/vendor/quotations" },
+  { label: "Purchase Orders", path: "/vendor/purchase-orders" },
+  { label: "My Profile", path: "/vendor/profile" },
 ];
 
 const QUICK_ACTIONS = [
@@ -73,22 +34,101 @@ export default function VendorDashboard() {
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
 
+  // Metrics
+  const [openRfqsCount, setOpenRfqsCount] = useState(0);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
-    if (!token || !storedUser) { navigate("/login"); return; }
+    if (!token || !storedUser) {
+      navigate("/login");
+      return;
+    }
     try {
       const parsed = JSON.parse(storedUser);
-      if (parsed.role !== "Vendor") { navigate("/"); return; }
+      if (parsed.role !== "Vendor") {
+        navigate("/");
+        return;
+      }
       setUser(parsed);
-    } catch { navigate("/login"); }
+      fetchDashboardMetrics(token);
+    } catch {
+      navigate("/login");
+    }
   }, [navigate]);
+
+  const fetchDashboardMetrics = async (token: string) => {
+    try {
+      const res = await fetch("http://localhost:8000/api/rfqs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.success) {
+        // Vendor gets only assigned RFQs which are not drafts
+        const openCount = data.rfqs.filter((r: any) => r.status === "Open").length;
+        setOpenRfqsCount(openCount);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard metrics:", err);
+    }
+  };
+
+  const handleNavbarNavigate = (item: NavItem) => {
+    if (item.path) navigate(item.path);
+  };
+
+  const handleQuickAction = (label: string) => {
+    if (label === "Browse RFQs") {
+      navigate("/vendor/rfqs");
+    } else {
+      alert(`The "${label}" feature will be wired in the upcoming workflow stages.`);
+    }
+  };
 
   if (!user) return <LoadingScreen />;
 
+  const kpiCards = [
+    {
+      label: "Open RFQ Invitations",
+      value: openRfqsCount.toString(),
+      sub: "Awaiting your response",
+      icon: FileText,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      border: "border-blue-100",
+    },
+    {
+      label: "Quotations Submitted",
+      value: "0",
+      sub: "Across all RFQs",
+      icon: SendHorizontal,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      border: "border-emerald-100",
+    },
+    {
+      label: "Quotations Selected",
+      value: "0",
+      sub: "Won bids",
+      icon: CheckCircle,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      border: "border-amber-100",
+    },
+    {
+      label: "Active Purchase Orders",
+      value: "0",
+      sub: "To be fulfilled",
+      icon: ShoppingCart,
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      border: "border-violet-100",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
-      <Navbar user={user} navItems={NAV_ITEMS} />
+      <Navbar user={user} navItems={NAV_ITEMS} onNavigate={handleNavbarNavigate} />
 
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-5 py-8 space-y-7">
         {/* Header */}
@@ -106,14 +146,17 @@ export default function VendorDashboard() {
               Browse open RFQs, submit quotations, and track your purchase orders.
             </p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-8 px-3 gap-1.5 shadow-sm self-start sm:self-auto">
+          <Button
+            onClick={() => navigate("/vendor/rfqs")}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-8 px-3 gap-1.5 shadow-sm self-start sm:self-auto"
+          >
             <Eye size={14} /> Browse RFQs
           </Button>
         </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {KPI_CARDS.map(({ label, value, sub, icon: Icon, color, bg, border }) => (
+          {kpiCards.map(({ label, value, sub, icon: Icon, color, bg, border }) => (
             <div key={label} className={`bg-white border ${border} rounded-xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow`}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">{label}</span>
@@ -139,6 +182,7 @@ export default function VendorDashboard() {
             {QUICK_ACTIONS.map(({ label, icon: Icon, desc }) => (
               <button
                 key={label}
+                onClick={() => handleQuickAction(label)}
                 className="group flex items-start gap-3 p-4 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all text-left"
               >
                 <div className="h-9 w-9 rounded-lg bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors shrink-0">

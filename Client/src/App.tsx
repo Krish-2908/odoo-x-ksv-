@@ -10,7 +10,14 @@ import ResetPassword from "./pages/ResetPassword";
 // Portal pages
 import AdminDashboard from "./portals/admin/pages/AdminDashboard";
 import ProcurementDashboard from "./portals/procurement/pages/ProcurementDashboard";
+import ProcurementRFQList from "./portals/procurement/pages/RFQList";
+import ProcurementRFQCreate from "./portals/procurement/pages/RFQCreate";
+import ProcurementRFQDetails from "./portals/procurement/pages/RFQDetails";
+
 import VendorDashboard from "./portals/vendor/pages/VendorDashboard";
+import VendorRFQList from "./portals/vendor/pages/RFQList";
+import VendorRFQDetails from "./portals/vendor/pages/RFQDetails";
+
 import ManagerDashboard from "./portals/manager/pages/ManagerDashboard";
 
 import "./App.css";
@@ -49,9 +56,14 @@ function App() {
 
           {/* Procurement Officer Portal */}
           <Route path="/procurement" element={<ProcurementDashboard />} />
+          <Route path="/procurement/rfqs" element={<ProcurementRFQList />} />
+          <Route path="/procurement/rfqs/new" element={<ProcurementRFQCreate />} />
+          <Route path="/procurement/rfqs/:id" element={<ProcurementRFQDetails />} />
 
           {/* Vendor Portal */}
           <Route path="/vendor" element={<VendorDashboard />} />
+          <Route path="/vendor/rfqs" element={<VendorRFQList />} />
+          <Route path="/vendor/rfqs/:id" element={<VendorRFQDetails />} />
 
           {/* Manager / Approver Portal */}
           <Route path="/manager" element={<ManagerDashboard />} />

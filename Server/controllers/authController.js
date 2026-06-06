@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const User = require("../models/User");
+const Vendor = require("../models/Vendor");
 const jwt = require("jsonwebtoken");
 const { runValidators, validate } = require("../utils/validators");
 
@@ -58,6 +59,17 @@ exports.register = async (req, res) => {
       additionalInfo: additionalInfo?.trim() || "",
       password,
     });
+
+    // If role is Vendor, create matching Vendor profile
+    if (role === "Vendor") {
+      await Vendor.create({
+        userId: user._id,
+        companyName: `${user.firstName} ${user.lastName} Corp`,
+        contactEmail: user.email,
+        contactPhone: user.phone,
+        status: "Pending Verification",
+      });
+    }
 
     res.status(201).json({
       success: true,

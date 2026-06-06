@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/shared/Navbar";
+import Navbar, { type NavItem } from "@/components/shared/Navbar";
 import {
   FileText,
   Users,
@@ -16,52 +16,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", active: true },
-  { label: "Vendors" },
-  { label: "RFQs" },
-  { label: "Quotations" },
-  { label: "Purchase Orders" },
-  { label: "Reports" },
-];
-
-const KPI_CARDS = [
-  {
-    label: "Active RFQs",
-    value: "0",
-    sub: "No open requests",
-    icon: FileText,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-  },
-  {
-    label: "Vendors Invited",
-    value: "0",
-    sub: "Pending responses",
-    icon: Users,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-  },
-  {
-    label: "Awaiting Approval",
-    value: "0",
-    sub: "Submitted for review",
-    icon: CheckCircle,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-  },
-  {
-    label: "Purchase Orders",
-    value: "0",
-    sub: "Generated this month",
-    icon: ShoppingCart,
-    color: "text-violet-600",
-    bg: "bg-violet-50",
-    border: "border-violet-100",
-  },
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", path: "/procurement", active: true },
+  { label: "Vendors", path: "/procurement/vendors" },
+  { label: "RFQs", path: "/procurement/rfqs" },
+  { label: "Quotations", path: "/procurement/quotations" },
+  { label: "Purchase Orders", path: "/procurement/purchase-orders" },
+  { label: "Reports", path: "/procurement/reports" },
 ];
 
 const QUICK_ACTIONS = [
@@ -77,22 +38,113 @@ export default function ProcurementDashboard() {
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
 
+  // Metrics
+  const [activeRfqsCount, setActiveRfqsCount] = useState(0);
+  const [totalVendorsCount, setTotalVendorsCount] = useState(0);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
-    if (!token || !storedUser) { navigate("/login"); return; }
+    if (!token || !storedUser) {
+      navigate("/login");
+      return;
+    }
     try {
       const parsed = JSON.parse(storedUser);
-      if (parsed.role !== "Procurement Officer") { navigate("/"); return; }
+      if (parsed.role !== "Procurement Officer") {
+        navigate("/");
+        return;
+      }
       setUser(parsed);
-    } catch { navigate("/login"); }
+      fetchDashboardMetrics(token);
+    } catch {
+      navigate("/login");
+    }
   }, [navigate]);
+
+  const fetchDashboardMetrics = async (token: string) => {
+    try {
+      // Fetch RFQs
+      const rfqRes = await fetch("http://localhost:8000/api/rfqs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const rfqData = await rfqRes.json();
+      if (rfqRes.status === 200 && rfqData.success) {
+        const openCount = rfqData.rfqs.filter((r: any) => r.status === "Open").length;
+        setActiveRfqsCount(openCount);
+      }
+
+      // Fetch Vendors
+      const vendorRes = await fetch("http://localhost:8000/api/vendors", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const vendorData = await vendorRes.json();
+      if (vendorRes.status === 200 && vendorData.success) {
+        setTotalVendorsCount(vendorData.vendors.length);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard metrics:", err);
+    }
+  };
+
+  const handleNavbarNavigate = (item: NavItem) => {
+    if (item.path) navigate(item.path);
+  };
+
+  const handleQuickAction = (label: string) => {
+    if (label === "Create RFQ") {
+      navigate("/procurement/rfqs/new");
+    } else if (label === "Browse RFQs" || label === "View RFQs") {
+      navigate("/procurement/rfqs");
+    } else {
+      alert(`The "${label}" feature will be wired in the upcoming workflow stages.`);
+    }
+  };
 
   if (!user) return <LoadingScreen />;
 
+  const kpiCards = [
+    {
+      label: "Active RFQs",
+      value: activeRfqsCount.toString(),
+      sub: `${activeRfqsCount} open requests for bids`,
+      icon: FileText,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      border: "border-blue-100",
+    },
+    {
+      label: "Vendors Registered",
+      value: totalVendorsCount.toString(),
+      sub: "Active in system directory",
+      icon: Users,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      border: "border-emerald-100",
+    },
+    {
+      label: "Awaiting Approval",
+      value: "0",
+      sub: "Submitted for review",
+      icon: CheckCircle,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      border: "border-amber-100",
+    },
+    {
+      label: "Purchase Orders",
+      value: "0",
+      sub: "Generated this month",
+      icon: ShoppingCart,
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      border: "border-violet-100",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
-      <Navbar user={user} navItems={NAV_ITEMS} />
+      <Navbar user={user} navItems={NAV_ITEMS} onNavigate={handleNavbarNavigate} />
 
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-5 py-8 space-y-7">
         {/* Header */}
@@ -110,14 +162,17 @@ export default function ProcurementDashboard() {
               Manage your RFQs, quotations, and purchase orders.
             </p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-8 px-3 gap-1.5 shadow-sm self-start sm:self-auto">
+          <Button
+            onClick={() => navigate("/procurement/rfqs/new")}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-8 px-3 gap-1.5 shadow-sm self-start sm:self-auto"
+          >
             <Plus size={14} /> New RFQ
           </Button>
         </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {KPI_CARDS.map(({ label, value, sub, icon: Icon, color, bg, border }) => (
+          {kpiCards.map(({ label, value, sub, icon: Icon, color, bg, border }) => (
             <div key={label} className={`bg-white border ${border} rounded-xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow`}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-600">{label}</span>
@@ -143,6 +198,7 @@ export default function ProcurementDashboard() {
             {QUICK_ACTIONS.map(({ label, icon: Icon, desc }) => (
               <button
                 key={label}
+                onClick={() => handleQuickAction(label)}
                 className="group flex items-start gap-3 p-4 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50/50 transition-all text-left"
               >
                 <div className="h-9 w-9 rounded-lg bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors shrink-0">
