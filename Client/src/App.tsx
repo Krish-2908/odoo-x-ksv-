@@ -17,6 +17,7 @@ import ProcurementRFQDetails from "./portals/procurement/pages/RFQDetails";
 import VendorDashboard from "./portals/vendor/pages/VendorDashboard";
 import VendorRFQList from "./portals/vendor/pages/RFQList";
 import VendorRFQDetails from "./portals/vendor/pages/RFQDetails";
+import VendorProfile from "./portals/vendor/pages/Profile";
 
 import ManagerDashboard from "./portals/manager/pages/ManagerDashboard";
 
@@ -64,6 +65,7 @@ function App() {
           <Route path="/vendor" element={<VendorDashboard />} />
           <Route path="/vendor/rfqs" element={<VendorRFQList />} />
           <Route path="/vendor/rfqs/:id" element={<VendorRFQDetails />} />
+          <Route path="/vendor/profile" element={<VendorProfile />} />
 
           {/* Manager / Approver Portal */}
           <Route path="/manager" element={<ManagerDashboard />} />

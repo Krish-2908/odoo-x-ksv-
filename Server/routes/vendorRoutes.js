@@ -10,6 +10,7 @@ router.get(
   vendorController.getAllVendors
 );
 
+router.get("/my-profile", protect, vendorController.getMyProfile);
 router.get("/:id", protect, vendorController.getVendorById);
 router.put("/:id", protect, vendorController.updateVendorProfile);
 

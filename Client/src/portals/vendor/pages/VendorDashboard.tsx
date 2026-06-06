@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Store,
   Edit,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -36,6 +37,7 @@ export default function VendorDashboard() {
 
   // Metrics
   const [openRfqsCount, setOpenRfqsCount] = useState(0);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -59,6 +61,7 @@ export default function VendorDashboard() {
 
   const fetchDashboardMetrics = async (token: string) => {
     try {
+      // Fetch open RFQs
       const res = await fetch("http://localhost:8000/api/rfqs", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -67,6 +70,15 @@ export default function VendorDashboard() {
         // Vendor gets only assigned RFQs which are not drafts
         const openCount = data.rfqs.filter((r: any) => r.status === "Open").length;
         setOpenRfqsCount(openCount);
+      }
+
+      // Fetch vendor profile
+      const profileRes = await fetch("http://localhost:8000/api/vendors/my-profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const profileData = await profileRes.json();
+      if (profileRes.status === 200 && profileData.success) {
+        setProfile(profileData.vendor);
       }
     } catch (err) {
       console.error("Failed to load dashboard metrics:", err);
@@ -153,6 +165,30 @@ export default function VendorDashboard() {
             <Eye size={14} /> Browse RFQs
           </Button>
         </div>
+
+        {/* GSTIN Missing Banner */}
+        {profile && !profile.gstNumber && (
+          <div className="bg-amber-50/75 border border-amber-250 text-amber-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm text-xs">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-lg bg-white border border-amber-200 flex items-center justify-center shrink-0">
+                <ShieldAlert size={16} className="text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-950">Tax Details Required</h3>
+                <p className="text-gray-500 mt-0.5 leading-relaxed">
+                  Your business profile has not been assigned a valid GSTIN number yet. Please update your tax profile details to be cleared for purchase order generation.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate("/vendor/profile")}
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 font-semibold text-xs h-8"
+            >
+              Update Profile
+            </Button>
+          </div>
+        )}
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

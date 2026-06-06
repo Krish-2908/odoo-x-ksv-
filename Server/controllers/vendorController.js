@@ -115,3 +115,26 @@ exports.updateVendorProfile = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// @desc    Get currently logged in vendor profile
+// @route   GET /api/vendors/my-profile
+// @access  Private (Vendor only)
+exports.getMyProfile = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ userId: req.user._id }).populate(
+      "userId",
+      "firstName lastName email role"
+    );
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor profile not found" });
+    }
+
+    res.json({
+      success: true,
+      vendor,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
