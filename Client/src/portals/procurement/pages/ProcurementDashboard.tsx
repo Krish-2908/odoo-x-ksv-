@@ -9,7 +9,6 @@ import {
   Plus,
   Building2,
   ArrowLeftRight,
-  BarChart3,
   Clock,
   TrendingUp,
   Briefcase,
@@ -22,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "RFQs", path: "/procurement/rfqs" },
   { label: "Quotations", path: "/procurement/quotations" },
   { label: "Purchase Orders", path: "/procurement/purchase-orders" },
+  { label: "Invoices", path: "/procurement/invoices" },
   { label: "Reports", path: "/procurement/reports" },
 ];
 
@@ -30,7 +30,7 @@ const QUICK_ACTIONS = [
   { icon: Building2, label: "Browse Vendors", desc: "View and filter the vendor directory" },
   { icon: ArrowLeftRight, label: "Compare Quotes", desc: "Side-by-side quotation comparison" },
   { icon: ShoppingCart, label: "Generate PO", desc: "Create a purchase order from an approved quote" },
-  { icon: BarChart3, label: "Spend Analytics", desc: "Category-wise spend reports and trends" },
+  { icon: FileText, label: "View Invoices", desc: "Track billing and Razorpay payment history" },
   { icon: CheckCircle, label: "Approval Status", desc: "Track submitted approvals and outcomes" },
 ];
 
@@ -94,8 +94,18 @@ export default function ProcurementDashboard() {
   const handleQuickAction = (label: string) => {
     if (label === "Create RFQ") {
       navigate("/procurement/rfqs/new");
-    } else if (label === "Browse RFQs" || label === "View RFQs") {
+    } else if (
+      label === "Browse RFQs" ||
+      label === "View RFQs" ||
+      label === "Compare Quotes" ||
+      label === "Generate PO" ||
+      label === "Approval Status"
+    ) {
       navigate("/procurement/rfqs");
+    } else if (label === "Browse Vendors") {
+      navigate("/procurement/vendors");
+    } else if (label === "View Invoices") {
+      navigate("/procurement/invoices");
     } else {
       alert(`The "${label}" feature will be wired in the upcoming workflow stages.`);
     }

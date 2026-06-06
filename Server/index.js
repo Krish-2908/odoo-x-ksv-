@@ -16,11 +16,15 @@ const authRoutes = require("./routes/authRoutes");
 const vendorRoutes = require("./routes/vendorRoutes");
 const rfqRoutes = require("./routes/rfqRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
+const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
+const invoiceRoutes = require("./routes/invoiceRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/rfqs", rfqRoutes);
 app.use("/api/quotations", quotationRoutes);
+app.use("/api/purchase-orders", purchaseOrderRoutes);
+app.use("/api/invoices", invoiceRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({

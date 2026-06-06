@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "RFQs", path: "/procurement/rfqs", active: true },
   { label: "Quotations", path: "/procurement/quotations" },
   { label: "Purchase Orders", path: "/procurement/purchase-orders" },
+  { label: "Invoices", path: "/procurement/invoices" },
   { label: "Reports", path: "/procurement/reports" },
 ];
 
@@ -177,6 +178,35 @@ export default function RFQDetails() {
     }
   };
 
+  const handleGeneratePO = async () => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    setServerError("");
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch("http://localhost:8000/api/purchase-orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rfqId: id }),
+      });
+
+      const data = await res.json();
+      if (res.status === 201 && data.success) {
+        navigate(`/procurement/purchase-orders/${data.purchaseOrder._id}`);
+      } else {
+        setServerError(data.message || "Failed to generate Purchase Order.");
+      }
+    } catch (err) {
+      setServerError("Network error. Could not connect to the server.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleNavbarNavigate = (item: NavItem) => {
     if (item.path) navigate(item.path);
   };
@@ -234,7 +264,20 @@ export default function RFQDetails() {
               </Button>
             </div>
           )}
+
+          {rfq && rfq.status === "Under Review" && rfq.approvalStatus === "Approved" && (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleGeneratePO}
+                disabled={actionLoading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3.5 gap-1.5 shadow-sm font-semibold animate-pulse"
+              >
+                <Check size={13} /> Generate PO & Invoice
+              </Button>
+            </div>
+          )}
         </div>
+
 
         {serverError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-2 text-sm">

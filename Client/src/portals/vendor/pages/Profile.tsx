@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Open RFQs", path: "/vendor/rfqs" },
   { label: "My Quotations", path: "/vendor/quotations" },
   { label: "Purchase Orders", path: "/vendor/purchase-orders" },
+  { label: "Invoices", path: "/vendor/invoices" },
   { label: "My Profile", path: "/vendor/profile", active: true },
 ];
 

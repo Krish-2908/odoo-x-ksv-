@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Open RFQs", path: "/vendor/rfqs" },
   { label: "My Quotations", path: "/vendor/quotations" },
   { label: "Purchase Orders", path: "/vendor/purchase-orders" },
+  { label: "Invoices", path: "/vendor/invoices" },
   { label: "My Profile", path: "/vendor/profile" },
 ];
 
@@ -29,6 +30,7 @@ const QUICK_ACTIONS = [
   { icon: Plus, label: "Submit Quotation", desc: "Respond to an RFQ with pricing & timeline" },
   { icon: Edit, label: "Edit Quotation", desc: "Update a previously submitted quotation" },
   { icon: ShoppingCart, label: "View POs", desc: "Track purchase orders received" },
+  { icon: FileText, label: "View Invoices", desc: "Track billing statements and payments" },
 ];
 
 export default function VendorDashboard() {
@@ -90,8 +92,12 @@ export default function VendorDashboard() {
   };
 
   const handleQuickAction = (label: string) => {
-    if (label === "Browse RFQs") {
+    if (label === "Browse RFQs" || label === "Submit Quotation" || label === "Edit Quotation") {
       navigate("/vendor/rfqs");
+    } else if (label === "View POs") {
+      navigate("/vendor/purchase-orders");
+    } else if (label === "View Invoices") {
+      navigate("/vendor/invoices");
     } else {
       alert(`The "${label}" feature will be wired in the upcoming workflow stages.`);
     }

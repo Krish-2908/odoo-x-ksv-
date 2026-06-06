@@ -21,6 +21,18 @@ import VendorProfile from "./portals/vendor/pages/Profile";
 
 import ManagerDashboard from "./portals/manager/pages/ManagerDashboard";
 
+// PO Pages
+import ProcurementPOList from "./portals/procurement/pages/PurchaseOrderList";
+import ProcurementPODetails from "./portals/procurement/pages/PurchaseOrderDetails";
+import VendorPOList from "./portals/vendor/pages/PurchaseOrderList";
+import VendorPODetails from "./portals/vendor/pages/PurchaseOrderDetails";
+
+// Invoice Pages
+import ProcurementInvoiceList from "./portals/procurement/pages/InvoiceList";
+import ProcurementInvoiceDetails from "./portals/procurement/pages/InvoiceDetails";
+import VendorInvoiceList from "./portals/vendor/pages/InvoiceList";
+import VendorInvoiceDetails from "./portals/vendor/pages/InvoiceDetails";
+
 import "./App.css";
 
 /** Redirect authenticated users away from public routes (Login / Register) */
@@ -60,12 +72,20 @@ function App() {
           <Route path="/procurement/rfqs" element={<ProcurementRFQList />} />
           <Route path="/procurement/rfqs/new" element={<ProcurementRFQCreate />} />
           <Route path="/procurement/rfqs/:id" element={<ProcurementRFQDetails />} />
+          <Route path="/procurement/purchase-orders" element={<ProcurementPOList />} />
+          <Route path="/procurement/purchase-orders/:id" element={<ProcurementPODetails />} />
+          <Route path="/procurement/invoices" element={<ProcurementInvoiceList />} />
+          <Route path="/procurement/invoices/:id" element={<ProcurementInvoiceDetails />} />
 
           {/* Vendor Portal */}
           <Route path="/vendor" element={<VendorDashboard />} />
           <Route path="/vendor/rfqs" element={<VendorRFQList />} />
           <Route path="/vendor/rfqs/:id" element={<VendorRFQDetails />} />
           <Route path="/vendor/profile" element={<VendorProfile />} />
+          <Route path="/vendor/purchase-orders" element={<VendorPOList />} />
+          <Route path="/vendor/purchase-orders/:id" element={<VendorPODetails />} />
+          <Route path="/vendor/invoices" element={<VendorInvoiceList />} />
+          <Route path="/vendor/invoices/:id" element={<VendorInvoiceDetails />} />
 
           {/* Manager / Approver Portal */}
           <Route path="/manager" element={<ManagerDashboard />} />
