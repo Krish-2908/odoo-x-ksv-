@@ -69,6 +69,35 @@ const rfqSchema = new mongoose.Schema(
       enum: ["Draft", "Open", "Closed", "Under Review", "Completed"],
       default: "Draft",
     },
+    selectedQuotation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Quotation",
+      default: null,
+    },
+    approvalStatus: {
+      type: String,
+      enum: ["Draft", "Pending Approval", "Approved", "Rejected"],
+      default: "Draft",
+    },
+    approvalTimeline: [
+      {
+        action: {
+          type: String,
+        },
+        actionBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        remarks: {
+          type: String,
+          default: "",
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

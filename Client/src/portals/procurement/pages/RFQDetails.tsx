@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar, { type NavItem } from "@/components/shared/Navbar";
+import BidComparison from "../components/BidComparison";
 import {
   ArrowLeft,
   Calendar,
@@ -12,6 +13,7 @@ import {
   Clock,
   User,
   ShoppingBag,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -32,6 +34,9 @@ export default function RFQDetails() {
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "comparison">("overview");
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [quotationsLoading, setQuotationsLoading] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -48,6 +53,7 @@ export default function RFQDetails() {
       }
       setUser(parsed);
       fetchRFQDetails(token);
+      fetchQuotations(token);
     } catch {
       navigate("/login");
     }
@@ -68,6 +74,51 @@ export default function RFQDetails() {
       setServerError("Could not connect to the server.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQuotations = async (token: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/quotations/rfq/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.success) {
+        setQuotations(data.quotations);
+      }
+    } catch (err) {
+      console.error("Failed to load quotations:", err);
+    } finally {
+      setQuotationsLoading(false);
+    }
+  };
+
+  const handleSelectBid = async (quotationId: string, remarks?: string) => {
+    setActionLoading(true);
+    setServerError("");
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/rfqs/${id}/select-bid`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quotationId, remarks }),
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.success) {
+        setRfq(data.rfq);
+        if (token) {
+          await fetchQuotations(token);
+        }
+      } else {
+        setServerError(data.message || "Failed to submit bid selection.");
+      }
+    } catch (err) {
+      setServerError("Network error. Could not submit selection.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -192,6 +243,38 @@ export default function RFQDetails() {
           </div>
         )}
 
+        {/* Action Banners */}
+        {rfq && rfq.status === "Under Review" && rfq.approvalStatus === "Pending Approval" && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-xs leading-relaxed text-amber-800 shadow-sm">
+            <Clock size={16} className="text-amber-600 shrink-0 mt-0.5 animate-spin" style={{ animationDuration: '4s' }} />
+            <div>
+              <span className="font-bold">Pending Manager Review:</span> This solicitation has been submitted for approval. Purchase Order generation is locked until manager sign-off is completed.
+            </div>
+          </div>
+        )}
+
+        {rfq && rfq.approvalStatus === "Rejected" && (
+          <div className="bg-red-50 border border-red-205 rounded-xl p-4 flex gap-3 text-xs leading-relaxed text-red-800 shadow-sm">
+            <AlertCircle size={16} className="text-red-650 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Procurement Proposal Rejected:</span> The manager rejected the submitted bid proposal. Rejection remarks:
+              <p className="mt-1 font-semibold italic">
+                "{rfq.approvalTimeline.filter((t: any) => t.action === 'Reject').slice(-1)[0]?.remarks || 'No remarks provided.'}"
+              </p>
+              Please review competing vendor offers in the comparison matrix and award a different bid.
+            </div>
+          </div>
+        )}
+
+        {rfq && rfq.approvalStatus === "Approved" && (
+          <div className="bg-emerald-50 border border-emerald-250 rounded-xl p-4 flex gap-3 text-xs leading-relaxed text-emerald-800 shadow-sm">
+            <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Proposal Approved:</span> The manager approved the selected bid. You are now cleared to generate the Purchase Order.
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="bg-white border border-gray-200 rounded-xl p-20 flex flex-col items-center justify-center gap-3">
             <div className="h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
@@ -205,81 +288,133 @@ export default function RFQDetails() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content (2 columns wide) */}
             <div className="lg:col-span-2 space-y-6">
-              {/* RFQ Meta Info Card */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
-                  <div>
-                    <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-0.5">RFQ Detail Sheet</div>
-                    <h1 className="text-lg font-bold text-gray-900">{rfq.title}</h1>
-                  </div>
-                  <div className="self-start sm:self-auto">{getStatusBadge(rfq.status)}</div>
+              {/* Tab Selector */}
+              {rfq.status !== "Draft" && (
+                <div className="flex border-b border-gray-200 gap-4 mb-2">
+                  <button
+                    onClick={() => setActiveTab("overview")}
+                    className={`pb-2.5 text-xs font-bold transition-all relative ${
+                      activeTab === "overview"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-400 hover:text-gray-800"
+                    }`}
+                  >
+                    RFQ Overview
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("comparison")}
+                    className={`pb-2.5 text-xs font-bold transition-all relative flex items-center gap-1.5 ${
+                      activeTab === "comparison"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-400 hover:text-gray-800"
+                    }`}
+                  >
+                    Bid Comparison
+                    {quotations.length > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-blue-100 text-blue-800">
+                        {quotations.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 p-3 rounded-lg">
-                    <User size={16} className="text-gray-400" />
-                    <div>
-                      <div className="font-medium text-gray-500">Created By</div>
-                      <div className="font-semibold text-gray-900 mt-0.5">
-                        {rfq.createdBy.firstName} {rfq.createdBy.lastName}
+              {activeTab === "overview" ? (
+                <>
+                  {/* RFQ Meta Info Card */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                      <div>
+                        <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-0.5">RFQ Detail Sheet</div>
+                        <h1 className="text-lg font-bold text-gray-900">{rfq.title}</h1>
                       </div>
+                      <div className="self-start sm:self-auto">{getStatusBadge(rfq.status)}</div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 p-3 rounded-lg">
-                    <Calendar size={16} className="text-gray-400" />
-                    <div>
-                      <div className="font-medium text-gray-500">Submission Deadline</div>
-                      <div className="font-semibold text-gray-900 mt-0.5">
-                        {new Date(rfq.deadline).toLocaleString([], {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 pt-2">
-                  <h3 className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <FileText size={13} /> Detailed Description
-                  </h3>
-                  <div className="text-sm text-gray-700 bg-gray-50/50 border border-gray-100 p-4 rounded-lg leading-relaxed whitespace-pre-wrap">
-                    {rfq.description || "No description provided."}
-                  </div>
-                </div>
-              </div>
-
-              {/* Items Card List */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-100 pb-2">
-                  <ShoppingBag size={16} className="text-blue-600" /> Requested Items ({rfq.items.length})
-                </h2>
-
-                <div className="divide-y divide-gray-150">
-                  {rfq.items.map((item: any, index: number) => (
-                    <div key={item._id || index} className={`py-4 flex items-start gap-4 ${index === 0 ? "pt-1" : ""}`}>
-                      <div className="h-8 w-8 rounded bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-blue-600">{index + 1}</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-gray-950 flex flex-wrap items-center gap-x-2 gap-y-1">
-                          {item.productName}
-                          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-gray-100 border border-gray-200 text-gray-650">
-                            Qty: {item.quantity}
-                          </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 p-3 rounded-lg">
+                        <User size={16} className="text-gray-400" />
+                        <div>
+                          <div className="font-medium text-gray-500">Created By</div>
+                          <div className="font-semibold text-gray-900 mt-0.5">
+                            {rfq.createdBy.firstName} {rfq.createdBy.lastName}
+                          </div>
                         </div>
-                        {item.specs && (
-                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 border border-gray-150 p-2.5 rounded-lg">
-                            <span className="font-semibold text-gray-600">Specs:</span> {item.specs}
-                          </p>
-                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 p-3 rounded-lg">
+                        <Calendar size={16} className="text-gray-400" />
+                        <div>
+                          <div className="font-medium text-gray-500">Submission Deadline</div>
+                          <div className="font-semibold text-gray-900 mt-0.5">
+                            {new Date(rfq.deadline).toLocaleString([], {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
+
+                    <div className="space-y-1.5 pt-2">
+                      <h3 className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                        <FileText size={13} /> Detailed Description
+                      </h3>
+                      <div className="text-sm text-gray-700 bg-gray-50/50 border border-gray-100 p-4 rounded-lg leading-relaxed whitespace-pre-wrap">
+                        {rfq.description || "No description provided."}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Items Card List */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
+                    <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-100 pb-2">
+                      <ShoppingBag size={16} className="text-blue-600" /> Requested Items ({rfq.items.length})
+                    </h2>
+
+                    <div className="divide-y divide-gray-150">
+                      {rfq.items.map((item: any, index: number) => (
+                        <div key={item._id || index} className={`py-4 flex items-start gap-4 ${index === 0 ? "pt-1" : ""}`}>
+                          <div className="h-8 w-8 rounded bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-blue-600">{index + 1}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-gray-950 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              {item.productName}
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-gray-100 border border-gray-200 text-gray-650">
+                                Qty: {item.quantity}
+                              </span>
+                            </div>
+                            {item.specs && (
+                              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 border border-gray-150 p-2.5 rounded-lg">
+                                <span className="font-semibold text-gray-600">Specs:</span> {item.specs}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  {quotationsLoading ? (
+                    <div className="bg-white border border-gray-200 rounded-xl p-20 flex flex-col items-center justify-center gap-3">
+                      <div className="h-6 w-6 rounded-full border border-blue-600 border-t-transparent animate-spin" />
+                      <span className="text-xs text-gray-400">Comparing proposal lines...</span>
+                    </div>
+                  ) : (
+                    <BidComparison
+                      rfq={rfq}
+                      quotations={quotations}
+                      onSelect={handleSelectBid}
+                      actionLoading={actionLoading}
+                    />
+                  )}
                 </div>
-              </div>
+              )}
             </div>
+
 
             {/* Sidebar (1 column wide) */}
             <div className="space-y-6">

@@ -1,5 +1,6 @@
 const RFQ = require("../models/RFQ");
 const Vendor = require("../models/Vendor");
+const Quotation = require("../models/Quotation");
 
 // Helper to validate RFQ input
 const validateRFQInput = (data) => {
@@ -131,6 +132,10 @@ exports.getRFQs = async (req, res) => {
     const rfqs = await RFQ.find(filter)
       .populate("createdBy", "firstName lastName email")
       .populate("assignedVendors", "companyName category contactEmail contactPhone status rating")
+      .populate({
+        path: "selectedQuotation",
+        populate: { path: "vendorId", select: "companyName rating category gstNumber contactEmail contactPhone" }
+      })
       .sort({ createdAt: -1 });
 
     res.json({
@@ -150,7 +155,11 @@ exports.getRFQById = async (req, res) => {
   try {
     const rfq = await RFQ.findById(req.params.id)
       .populate("createdBy", "firstName lastName email")
-      .populate("assignedVendors", "companyName category contactEmail contactPhone status rating");
+      .populate("assignedVendors", "companyName category contactEmail contactPhone status rating")
+      .populate({
+        path: "selectedQuotation",
+        populate: { path: "vendorId", select: "companyName rating category gstNumber contactEmail contactPhone" }
+      });
 
     if (!rfq) {
       return res.status(404).json({ message: "RFQ not found" });
@@ -279,3 +288,164 @@ exports.deleteRFQ = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// @desc    Select a bid / quotation for an RFQ and submit for approval
+// @route   PUT /api/rfqs/:id/select-bid
+// @access  Private (Procurement Officer)
+exports.selectBid = async (req, res) => {
+  try {
+    const { quotationId } = req.body;
+    if (!quotationId) {
+      return res.status(400).json({ message: "Quotation ID is required." });
+    }
+
+    const rfq = await RFQ.findById(req.params.id);
+    if (!rfq) {
+      return res.status(404).json({ message: "RFQ not found" });
+    }
+
+    if (req.user.role !== "Procurement Officer") {
+      return res.status(403).json({ message: "Only Procurement Officers can select bids." });
+    }
+
+    if (rfq.status !== "Open" && rfq.status !== "Closed") {
+      return res.status(400).json({
+        message: `Cannot select bid. RFQ must be in 'Open' or 'Closed' status. Current status is '${rfq.status}'.`,
+      });
+    }
+
+    const quotation = await Quotation.findById(quotationId);
+    if (!quotation) {
+      return res.status(404).json({ message: "Quotation not found." });
+    }
+
+    if (quotation.rfqId.toString() !== rfq._id.toString()) {
+      return res.status(400).json({ message: "Quotation does not belong to this RFQ." });
+    }
+
+    // Update RFQ status
+    rfq.selectedQuotation = quotation._id;
+    rfq.status = "Under Review";
+    rfq.approvalStatus = "Pending Approval";
+
+    // Add entry to approval timeline
+    rfq.approvalTimeline.push({
+      action: "Select & Submit for Approval",
+      actionBy: req.user._id,
+      remarks: req.body.remarks || "Submitted winning bid for review.",
+      timestamp: new Date(),
+    });
+
+    await rfq.save();
+
+    // Update Quotation status
+    quotation.status = "Selected";
+    await quotation.save();
+
+    res.json({
+      success: true,
+      message: "Bid selected and submitted for approval successfully.",
+      rfq,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Approve RFQ and selected bid (Manager only)
+// @route   PUT /api/rfqs/:id/approve
+// @access  Private (Manager)
+exports.approveRFQ = async (req, res) => {
+  try {
+    const rfq = await RFQ.findById(req.params.id);
+    if (!rfq) {
+      return res.status(404).json({ message: "RFQ not found" });
+    }
+
+    if (req.user.role !== "Manager") {
+      return res.status(403).json({ message: "Only Managers can approve requests." });
+    }
+
+    if (rfq.status !== "Under Review" || rfq.approvalStatus !== "Pending Approval") {
+      return res.status(400).json({
+        message: "This RFQ is not awaiting approval.",
+      });
+    }
+
+    rfq.approvalStatus = "Approved";
+    rfq.approvalTimeline.push({
+      action: "Approve",
+      actionBy: req.user._id,
+      remarks: req.body.remarks || "Approved.",
+      timestamp: new Date(),
+    });
+
+    await rfq.save();
+
+    res.json({
+      success: true,
+      message: "Procurement request approved successfully.",
+      rfq,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Reject RFQ and selected bid (Manager only)
+// @route   PUT /api/rfqs/:id/reject
+// @access  Private (Manager)
+exports.rejectRFQ = async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    if (!remarks || !remarks.trim()) {
+      return res.status(400).json({ message: "Rejection remarks are required." });
+    }
+
+    const rfq = await RFQ.findById(req.params.id);
+    if (!rfq) {
+      return res.status(404).json({ message: "RFQ not found" });
+    }
+
+    if (req.user.role !== "Manager") {
+      return res.status(403).json({ message: "Only Managers can reject requests." });
+    }
+
+    if (rfq.status !== "Under Review" || rfq.approvalStatus !== "Pending Approval") {
+      return res.status(400).json({
+        message: "This RFQ is not awaiting approval.",
+      });
+    }
+
+    // Find the selected quotation and revert its status
+    if (rfq.selectedQuotation) {
+      const quotation = await Quotation.findById(rfq.selectedQuotation);
+      if (quotation) {
+        quotation.status = "Revised"; // revert to a revised/submitted state
+        await quotation.save();
+      }
+    }
+
+    rfq.status = "Open"; // Reopen for new proposals or editing
+    rfq.approvalStatus = "Rejected";
+    rfq.selectedQuotation = null; // Clear winning bid
+
+    rfq.approvalTimeline.push({
+      action: "Reject",
+      actionBy: req.user._id,
+      remarks: remarks.trim(),
+      timestamp: new Date(),
+    });
+
+    await rfq.save();
+
+    res.json({
+      success: true,
+      message: "Procurement request rejected and returned for revision.",
+      rfq,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
