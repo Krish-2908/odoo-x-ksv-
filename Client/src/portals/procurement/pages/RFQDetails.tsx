@@ -155,6 +155,7 @@ export default function RFQDetails() {
     setActionLoading(true);
     setServerError("");
     const token = localStorage.getItem("token");
+    if (!token) return;
     try {
       const res = await fetch(`http://localhost:8000/api/rfqs/${id}`, {
         method: "PUT",

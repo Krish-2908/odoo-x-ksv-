@@ -91,6 +91,70 @@ exports.getAnalyticsStats = async (req, res) => {
       });
     }
 
+    // 6. CYCLE TIME & PERFORMANCE Cycle calculations (RFQ to Payment Cycle)
+    const completedPOs = await PurchaseOrder.find({ status: "Paid" }).populate("rfqId");
+    let totalRfqToPaidTime = 0;
+    let completedPoCount = 0;
+
+    for (const po of completedPOs) {
+      if (po.rfqId) {
+        const rfq = po.rfqId;
+        const rfqCreated = new Date(rfq.createdAt);
+        // Find matching paid invoice
+        const invoice = await Invoice.findOne({ purchaseOrderId: po._id, status: "Paid" });
+        if (invoice) {
+          const invoicePaid = new Date(invoice.updatedAt);
+          const daysDiff = (invoicePaid - rfqCreated) / (1000 * 60 * 60 * 24);
+          if (daysDiff > 0) {
+            totalRfqToPaidTime += daysDiff;
+            completedPoCount++;
+          }
+        }
+      }
+    }
+    const avgCycleDays = completedPoCount > 0 ? Number((totalRfqToPaidTime / completedPoCount).toFixed(1)) : 0;
+
+    // 7. FINANCIAL SAVINGS (Selected quote vs average of other quotes)
+    const selectedRFQs = await RFQ.find({ selectedQuotation: { $ne: null } });
+    let totalSavingsINR = 0;
+    for (const r of selectedRFQs) {
+      const allQuotes = await Quotation.find({ rfqId: r._id });
+      if (allQuotes.length > 1) {
+        const winningQuote = allQuotes.find(q => q._id.toString() === r.selectedQuotation.toString());
+        if (winningQuote) {
+          const otherQuotes = allQuotes.filter(q => q._id.toString() !== r.selectedQuotation.toString());
+          const sumOther = otherQuotes.reduce((sum, q) => sum + q.grandTotal, 0);
+          const avgOther = sumOther / otherQuotes.length;
+          const savings = avgOther - winningQuote.grandTotal;
+          if (savings > 0) {
+            totalSavingsINR += savings;
+          }
+        }
+      }
+    }
+
+    // 8. UNPAID INVOICES AGING ANALYSIS
+    const unpaidInvoices = await Invoice.find({ status: "Unpaid" });
+    let ageGroup1 = 0; // 0-7 days
+    let ageGroup2 = 0; // 8-30 days
+    let ageGroup3 = 0; // 30+ days
+    const now = new Date();
+    for (const inv of unpaidInvoices) {
+      const days = (now - new Date(inv.createdAt)) / (1000 * 60 * 60 * 24);
+      if (days <= 7) {
+        ageGroup1 += inv.grandTotal;
+      } else if (days <= 30) {
+        ageGroup2 += inv.grandTotal;
+      } else {
+        ageGroup3 += inv.grandTotal;
+      }
+    }
+    const agingAnalysis = {
+      underWeek: Number(ageGroup1.toFixed(2)),
+      underMonth: Number(ageGroup2.toFixed(2)),
+      overMonth: Number(ageGroup3.toFixed(2)),
+    };
+
     res.json({
       success: true,
       metrics: {
@@ -104,10 +168,13 @@ exports.getAnalyticsStats = async (req, res) => {
         unpaidInvoicesCount,
         totalSpendUSD: Number(totalSpendINR.toFixed(2)),
         totalSpendINR: Number(totalSpendINR.toFixed(2)),
+        avgCycleDays,
+        totalSavingsINR: Number(totalSavingsINR.toFixed(2)),
       },
       spendByMonth,
       spendByCategory,
       vendorPerformance,
+      agingAnalysis,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

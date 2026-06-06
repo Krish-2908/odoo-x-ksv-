@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Star,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -111,10 +112,13 @@ export default function SpendAnalytics() {
     unpaidInvoicesCount: 0,
     totalSpendINR: 0,
     totalSpendUSD: 0,
+    avgCycleDays: 0,
+    totalSavingsINR: 0,
   };
   const spendByMonth = analytics?.spendByMonth || [];
   const spendByCategory = analytics?.spendByCategory || [];
   const vendorPerformance = analytics?.vendorPerformance || [];
+  const agingAnalysis = analytics?.agingAnalysis || { underWeek: 0, underMonth: 0, overMonth: 0 };
 
   // 1. Calculate Monthly stats
   const maxMonthAmount = spendByMonth.length > 0 ? Math.max(...spendByMonth.map((d: any) => d.amount)) : 1000;
@@ -345,6 +349,104 @@ export default function SpendAnalytics() {
                     );
                   })
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Procurement Methodologies Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Cycle Time Card */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-gray-500">
+                <span className="text-xs font-bold uppercase tracking-wider">Procurement Cycle Velocity</span>
+                <Clock size={18} className="text-blue-600" />
+              </div>
+              <div>
+                <div className="text-3xl font-black text-gray-950 font-mono">
+                  {metrics.avgCycleDays || "0.0"} <span className="text-sm font-medium text-gray-400">days</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+                  Average duration elapsed from initial RFQ creation to final cleared invoice settlement.
+                </p>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 p-2.5 rounded-lg text-[10px] text-blue-700 leading-snug flex items-center gap-1.5 font-semibold">
+              <TrendingUp size={12} className="shrink-0" />
+              <span>Optimizing target duration is &lt; 15.0 days.</span>
+            </div>
+          </div>
+
+          {/* Negotiated Savings Card */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-gray-500">
+                <span className="text-xs font-bold uppercase tracking-wider">Negotiated Cost Savings</span>
+                <Award size={18} className="text-emerald-600" />
+              </div>
+              <div>
+                <div className="text-3xl font-black text-gray-900 font-mono">
+                  ₹{(metrics.totalSavingsINR || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+                  Total capital conserved through multi-vendor bidding relative to average supplier quotes.
+                </p>
+              </div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg text-[10px] text-emerald-700 leading-snug flex items-center gap-1.5 font-semibold">
+              <CheckCircle2 size={12} className="shrink-0" />
+              <span>Reflects direct procurement competitive advantage.</span>
+            </div>
+          </div>
+
+          {/* Invoice Aging Brackets Card */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between text-gray-500">
+              <span className="text-xs font-bold uppercase tracking-wider">Aged Accounts Payable</span>
+              <AlertCircle size={18} className="text-rose-600" />
+            </div>
+            <div className="space-y-2.5 pt-1">
+              {/* Bracket 1: 0-7 Days */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-semibold text-gray-700">
+                  <span>Current (0 - 7 Days)</span>
+                  <span className="font-mono">₹{agingAnalysis.underWeek.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    style={{ width: `${(agingAnalysis.underWeek / (agingAnalysis.underWeek + agingAnalysis.underMonth + agingAnalysis.overMonth || 1)) * 100}%` }}
+                    className="h-full bg-emerald-500 rounded-full"
+                  />
+                </div>
+              </div>
+
+              {/* Bracket 2: 8-30 Days */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-semibold text-gray-700">
+                  <span>Aged (8 - 30 Days)</span>
+                  <span className="font-mono">₹{agingAnalysis.underMonth.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    style={{ width: `${(agingAnalysis.underMonth / (agingAnalysis.underWeek + agingAnalysis.underMonth + agingAnalysis.overMonth || 1)) * 100}%` }}
+                    className="h-full bg-amber-500 rounded-full"
+                  />
+                </div>
+              </div>
+
+              {/* Bracket 3: Over 30 Days */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-semibold text-gray-700">
+                  <span>Critical (30+ Days Overdue)</span>
+                  <span className="font-mono text-rose-600 font-bold">₹{agingAnalysis.overMonth.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    style={{ width: `${(agingAnalysis.overMonth / (agingAnalysis.underWeek + agingAnalysis.underMonth + agingAnalysis.overMonth || 1)) * 100}%` }}
+                    className="h-full bg-rose-500 rounded-full"
+                  />
+                </div>
               </div>
             </div>
           </div>
