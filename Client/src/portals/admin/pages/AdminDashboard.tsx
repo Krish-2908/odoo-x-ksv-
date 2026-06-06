@@ -1019,130 +1019,182 @@ export default function AdminDashboard() {
 
         {/* User Management Tab */}
         {currentTab === "User Management" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 animate-in fade-in duration-300">
-            {/* Search and Filters */}
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search user registry by name, email, or role..."
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg w-full text-sm outline-none focus:ring-1 focus:ring-blue-500"
-              />
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Role Distribution Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { role: "Admin", color: "bg-purple-100 text-purple-800 border-purple-200", dot: "bg-purple-500" },
+                { role: "Procurement Officer", color: "bg-blue-100 text-blue-800 border-blue-200", dot: "bg-blue-500" },
+                { role: "Manager", color: "bg-emerald-100 text-emerald-800 border-emerald-200", dot: "bg-emerald-500" },
+                { role: "Vendor", color: "bg-orange-100 text-orange-800 border-orange-200", dot: "bg-orange-500" },
+              ].map(({ role, color, dot }) => {
+                const count = users.filter((u) => u.role === role).length;
+                return (
+                  <div key={role} className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${color}`}>
+                    <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+                    <div>
+                      <div className="text-lg font-bold">{count}</div>
+                      <div className="text-xs font-medium opacity-75">{role === "Procurement Officer" ? "PO Officers" : role + "s"}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Users Table */}
-            <div className="overflow-x-auto border border-gray-100 rounded-lg">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs font-semibold uppercase">
-                    <th className="p-3">User Details</th>
-                    <th className="p-3">Role</th>
-                    <th className="p-3">Phone</th>
-                    <th className="p-3">Country</th>
-                    <th className="p-3">Joined Date</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-gray-400 text-xs">
-                        No user records found matching the search filters.
-                      </td>
+            {/* Search */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search user registry by name, email, or role..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg w-full text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Users Table */}
+              <div className="overflow-x-auto border border-gray-100 rounded-lg">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs font-semibold uppercase">
+                      <th className="p-3">User Details</th>
+                      <th className="p-3">Role</th>
+                      <th className="p-3">Phone</th>
+                      <th className="p-3">Country</th>
+                      <th className="p-3">Joined Date</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    filteredUsers.map((usr) => (
-                      <tr key={usr._id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="p-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-8 w-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs">
-                              {usr.firstName[0]}
-                              {usr.lastName[0]}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-900">
-                                {usr.firstName} {usr.lastName}
-                              </div>
-                              <div className="text-xs text-gray-400">{usr.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-0.5 text-xs rounded-full font-semibold border ${
-                              usr.role === "Admin"
-                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                : usr.role === "Procurement Officer"
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : usr.role === "Manager"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-orange-50 text-orange-700 border-orange-200"
-                            }`}
-                          >
-                            {usr.role}
-                          </span>
-                        </td>
-                        <td className="p-3 text-gray-600 text-xs">{usr.phone || "—"}</td>
-                        <td className="p-3 text-gray-600 text-xs">{usr.country || "—"}</td>
-                        <td className="p-3 text-gray-400 text-xs">
-                          {new Date(usr.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <button
-                              onClick={() => openEditUserModal(usr)}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Edit User Details"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(usr._id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Delete Account"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-10 text-gray-400 text-xs">
+                          No user records found matching the search filters.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredUsers.map((usr) => (
+                        <tr key={usr._id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs text-white ${
+                                usr.role === "Admin" ? "bg-purple-500" :
+                                usr.role === "Procurement Officer" ? "bg-blue-500" :
+                                usr.role === "Manager" ? "bg-emerald-500" : "bg-orange-400"
+                              }`}>
+                                {usr.firstName[0]}{usr.lastName[0]}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-gray-900">{usr.firstName} {usr.lastName}</div>
+                                <div className="text-xs text-gray-400">{usr.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 text-xs rounded-full font-semibold border ${
+                              usr.role === "Admin" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                              usr.role === "Procurement Officer" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                              usr.role === "Manager" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                              "bg-orange-50 text-orange-700 border-orange-200"
+                            }`}>
+                              {usr.role}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-600 text-xs">{usr.phone || "—"}</td>
+                          <td className="p-3 text-gray-600 text-xs">{usr.country || "—"}</td>
+                          <td className="p-3 text-gray-400 text-xs">
+                            {new Date(usr.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <button
+                                onClick={() => openEditUserModal(usr)}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Edit User Details"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleResetUserPassword(usr)}
+                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                                title="Reset Password to Default"
+                              >
+                                <Key size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(usr._id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Account"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
         {/* Vendor Management Tab */}
         {currentTab === "Vendor Management" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 animate-in fade-in duration-300">
-            {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search vendor registry by name, category, email..."
-                  value={vendorSearch}
-                  onChange={(e) => setVendorSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg w-full text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                />
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Vendor Status Summary Banner */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                <div>
+                  <div className="text-xl font-bold text-emerald-800">{activeVendors}</div>
+                  <div className="text-xs text-emerald-600 font-medium">Active & Verified</div>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <select
-                  value={vendorStatusFilter}
-                  onChange={(e) => setVendorStatusFilter(e.target.value)}
-                  className="border border-gray-200 rounded-lg py-1.5 px-3 text-sm bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="All">All Verification Statuses</option>
-                  <option value="Active">Active / Verified</option>
-                  <option value="Pending Verification">Pending Verification</option>
-                  <option value="Suspended">Suspended</option>
-                </select>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                <Clock size={20} className="text-amber-600 shrink-0" />
+                <div>
+                  <div className="text-xl font-bold text-amber-800">{pendingVendors}</div>
+                  <div className="text-xs text-amber-600 font-medium">Pending Verification</div>
+                </div>
               </div>
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                <ShieldAlert size={20} className="text-red-600 shrink-0" />
+                <div>
+                  <div className="text-xl font-bold text-red-800">{suspendedVendors}</div>
+                  <div className="text-xs text-red-600 font-medium">Suspended</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+              {/* Search and Filters */}
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search vendor registry by name, category, email..."
+                    value={vendorSearch}
+                    onChange={(e) => setVendorSearch(e.target.value)}
+                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg w-full text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={vendorStatusFilter}
+                    onChange={(e) => setVendorStatusFilter(e.target.value)}
+                    className="border border-gray-200 rounded-lg py-1.5 px-3 text-sm bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="All">All Verification Statuses</option>
+                    <option value="Active">Active / Verified</option>
+                    <option value="Pending Verification">Pending Verification</option>
+                    <option value="Suspended">Suspended</option>
+                  </select>
+                </div>
             </div>
 
             {/* Vendor Cards/List */}
@@ -1174,11 +1226,18 @@ export default function AdminDashboard() {
                           <h4 className="font-bold text-gray-900 text-sm leading-tight">
                             {vendor.companyName}
                           </h4>
-                          <span className="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-semibold text-gray-500 mt-1">
-                            {vendor.category || "General Supply"}
-                          </span>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span className="inline-block px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-semibold text-gray-500">
+                              {vendor.category || "General Supply"}
+                            </span>
+                            {(vendor.rating || 5) < 3.0 && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-[10px] font-bold text-red-700 border border-red-200">
+                                <AlertTriangle size={9} /> Low Rating
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-amber-500 font-semibold">
+                        <div className="flex items-center gap-1 text-xs font-semibold" style={{ color: (vendor.rating || 5) < 3 ? '#dc2626' : (vendor.rating || 5) < 4 ? '#d97706' : '#f59e0b' }}>
                           <Star size={12} fill="currentColor" />
                           <span>{vendor.rating?.toFixed(1) || "5.0"}</span>
                         </div>
@@ -1250,6 +1309,7 @@ export default function AdminDashboard() {
                 ))
               )}
             </div>
+          </div>
           </div>
         )}
 
