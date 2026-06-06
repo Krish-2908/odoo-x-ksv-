@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar, { type NavItem } from "@/components/shared/Navbar";
+import QuotationForm from "../components/QuotationForm";
+import QuotationReceipt from "../components/QuotationReceipt";
 import {
   ArrowLeft,
   Calendar,
@@ -8,9 +10,8 @@ import {
   Clock,
   User,
   ShoppingBag,
-  Info,
-  DollarSign,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +31,12 @@ export default function RFQDetails() {
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState("");
 
+  // Quotation states
+  const [quotation, setQuotation] = useState<any>(null);
+  const [quotationLoading, setQuotationLoading] = useState(true);
+  const [submittingQuote, setSubmittingQuote] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -45,6 +52,7 @@ export default function RFQDetails() {
       }
       setUser(parsed);
       fetchRFQDetails(token);
+      fetchQuotation(token);
     } catch {
       navigate("/login");
     }
@@ -65,6 +73,56 @@ export default function RFQDetails() {
       setServerError("Could not connect to the server.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQuotation = async (token: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/quotations?rfqId=${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.success && data.quotations.length > 0) {
+        setQuotation(data.quotations[0]);
+      }
+    } catch (err) {
+      console.error("Failed to load quotation:", err);
+    } finally {
+      setQuotationLoading(false);
+    }
+  };
+
+  const handleQuoteSubmit = async (pricingDetails: any[], deliveryTimeline: string, notes: string) => {
+    setSubmittingQuote(true);
+    setServerError("");
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch("http://localhost:8000/api/quotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rfqId: id,
+          pricingDetails,
+          deliveryTimeline,
+          notes,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.status === 200 && data.success) {
+        setQuotation(data.quotation);
+        setEditMode(false);
+      } else {
+        setServerError(data.message || "Failed to submit quotation.");
+      }
+    } catch (err) {
+      setServerError("Network error. Could not submit.");
+    } finally {
+      setSubmittingQuote(false);
     }
   };
 
@@ -227,28 +285,35 @@ export default function RFQDetails() {
               })()}
 
               {/* Quotation Bid Submission Area */}
-              <div className="bg-white border border-gray-250 border-dashed rounded-xl p-5 space-y-4 shadow-sm">
-                <div className="h-10 w-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
-                  <DollarSign size={18} className="text-blue-600" />
+              {quotationLoading ? (
+                <div className="bg-white border border-gray-200 rounded-xl p-8 flex items-center justify-center gap-2">
+                  <div className="h-4 w-4 rounded-full border border-blue-600 border-t-transparent animate-spin" />
+                  <span className="text-[10px] text-gray-400">Checking bid status...</span>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900">Quotation Portal</h3>
-                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                    Bid submissions are locked for this RFQ solicitation page.
+              ) : quotation && !editMode ? (
+                <QuotationReceipt
+                  quotation={quotation}
+                  onEdit={() => setEditMode(true)}
+                  isExpired={new Date(rfq.deadline) <= new Date()}
+                />
+              ) : new Date(rfq.deadline) <= new Date() ? (
+                <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3 shadow-sm text-center">
+                  <div className="h-10 w-10 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mx-auto text-red-500">
+                    <AlertTriangle size={18} />
+                  </div>
+                  <h3 className="text-xs font-bold text-gray-955">Submission Period Expired</h3>
+                  <p className="text-[10px] text-gray-450 leading-relaxed">
+                    This RFQ solicitation has passed its closing deadline. New bid proposals cannot be accepted.
                   </p>
                 </div>
-
-                <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-3 flex items-start gap-2 text-[11px] leading-relaxed">
-                  <Info size={14} className="shrink-0 mt-0.5 text-blue-600" />
-                  <div>
-                    <span className="font-semibold">Workflow Status:</span> Bid responses (pricing entries and delivery timelines) will be unlocked in the next workflow step once requested.
-                  </div>
-                </div>
-
-                <Button disabled className="w-full text-xs h-9 bg-gray-100 border border-gray-200 text-gray-400">
-                  Submit Bid Proposal
-                </Button>
-              </div>
+              ) : (
+                <QuotationForm
+                  rfqItems={rfq.items}
+                  initialValues={quotation}
+                  onSubmit={handleQuoteSubmit}
+                  submitting={submittingQuote}
+                />
+              )}
             </div>
           </div>
         )}

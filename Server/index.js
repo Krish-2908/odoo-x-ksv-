@@ -15,10 +15,12 @@ app.use(express.json());
 const authRoutes = require("./routes/authRoutes");
 const vendorRoutes = require("./routes/vendorRoutes");
 const rfqRoutes = require("./routes/rfqRoutes");
+const quotationRoutes = require("./routes/quotationRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/rfqs", rfqRoutes);
+app.use("/api/quotations", quotationRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
