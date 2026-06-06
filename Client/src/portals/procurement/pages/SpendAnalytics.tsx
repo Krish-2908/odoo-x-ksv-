@@ -72,6 +72,31 @@ export default function SpendAnalytics() {
     }
   };
 
+  const handleExportCSV = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/analytics/export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        alert("Failed to export analytics CSV.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vendorbridge_spend_analytics_${new Date().toISOString().substring(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert("Error exporting CSV: " + err.message);
+    }
+  };
+
   if (loading) return <LoadingScreen />;
 
   // Destructure metrics
@@ -133,12 +158,21 @@ export default function SpendAnalytics() {
               Aggregated dashboard visualising system procurement spend, vendor win rates, and category indices.
             </p>
           </div>
-          <Button
-            onClick={() => window.print()}
-            className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm h-9 px-4 gap-1.5 shadow-sm"
-          >
-            <FileSpreadsheet size={15} /> Export Report / Print
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleExportCSV}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-9 px-4 gap-1.5 shadow-sm font-semibold"
+            >
+              <FileSpreadsheet size={15} /> Export CSV
+            </Button>
+            <Button
+              onClick={() => window.print()}
+              variant="outline"
+              className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm h-9 px-4 gap-1.5 shadow-sm font-semibold"
+            >
+              Print Report
+            </Button>
+          </div>
         </div>
 
         {/* High-level KPI Summary */}

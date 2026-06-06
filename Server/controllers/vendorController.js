@@ -1,4 +1,6 @@
 const Vendor = require("../models/Vendor");
+const User = require("../models/User");
+const { logActivity } = require("../utils/logger");
 
 // @desc    Get all vendor profiles
 // @route   GET /api/vendors
@@ -134,6 +136,84 @@ exports.getMyProfile = async (req, res) => {
       success: true,
       vendor,
     });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Create a new standalone vendor profile (Procurement Officer / Admin)
+// @route   POST /api/vendors
+// @access  Private (Procurement Officer, Admin)
+exports.createVendorProfile = async (req, res) => {
+  try {
+    const { companyName, category, gstNumber, contactEmail, contactPhone, firstName, lastName } = req.body;
+
+    if (!companyName || !contactEmail) {
+      return res.status(422).json({ message: "Company name and contact email are required." });
+    }
+
+    const emailLower = contactEmail.trim().toLowerCase();
+
+    // Check if user already exists
+    let user = await User.findOne({ email: emailLower });
+    if (!user) {
+      // Create a default User account for the vendor
+      user = await User.create({
+        firstName: firstName?.trim() || companyName.split(" ")[0] || "Vendor",
+        lastName: lastName?.trim() || "Contact",
+        email: emailLower,
+        phone: contactPhone?.trim() || "0000000000",
+        role: "Vendor",
+        country: "India",
+        password: "Vendor@123", // default password
+      });
+    }
+
+    const existing = await Vendor.findOne({ contactEmail: emailLower });
+    if (existing) {
+      return res.status(400).json({ message: "A vendor with this contact email already exists." });
+    }
+
+    const vendor = await Vendor.create({
+      userId: user._id,
+      companyName: companyName.trim(),
+      category: category?.trim() || "General Supply",
+      gstNumber: gstNumber?.trim() || "",
+      contactEmail: emailLower,
+      contactPhone: contactPhone?.trim() || user.phone,
+      status: "Pending Verification",
+      rating: 5.0,
+    });
+
+    await logActivity(
+      req.user._id,
+      "VENDOR_CREATED",
+      `Created vendor profile: "${vendor.companyName}"`
+    );
+
+    res.status(201).json({ success: true, message: "Vendor profile created successfully.", vendor });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc    Delete a vendor profile (Admin only)
+// @route   DELETE /api/vendors/:id
+// @access  Private (Admin)
+exports.deleteVendorProfile = async (req, res) => {
+  try {
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor) return res.status(404).json({ message: "Vendor profile not found." });
+
+    if (req.user.role !== "Admin") {
+      return res.status(403).json({ message: "Only Admins can permanently delete vendor profiles." });
+    }
+
+    const name = vendor.companyName;
+    await vendor.deleteOne();
+    await logActivity(req.user._id, "VENDOR_DELETED", `Deleted vendor profile: "${name}"`);
+
+    res.json({ success: true, message: `Vendor "${name}" deleted successfully.` });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

@@ -35,4 +35,10 @@ router.put(
   rfqController.rejectRFQ
 );
 
+router.put(
+  "/:id/close",
+  authorize("Procurement Officer"),
+  rfqController.closeRFQ
+);
+
 module.exports = router;

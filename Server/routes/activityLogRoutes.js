@@ -3,9 +3,9 @@ const router = express.Router();
 const activityLogController = require("../controllers/activityLogController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
-// Require auth and admin role for logs querying
+// Require auth and allowed roles for logs querying
 router.use(protect);
-router.use(authorize("Admin"));
+router.use(authorize("Admin", "Procurement Officer", "Manager"));
 
 router.get("/", activityLogController.getActivityLogs);
 

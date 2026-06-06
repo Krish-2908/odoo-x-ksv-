@@ -8,5 +8,6 @@ router.use(protect);
 router.use(authorize("Admin", "Procurement Officer", "Manager"));
 
 router.get("/", analyticsController.getAnalyticsStats);
+router.get("/export", analyticsController.exportAnalyticsCSV);
 
 module.exports = router;

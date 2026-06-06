@@ -113,3 +113,53 @@ exports.getAnalyticsStats = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// @desc    Export spend analytics as CSV
+// @route   GET /api/analytics/export
+// @access  Private (Admin, Procurement Officer, Manager)
+exports.exportAnalyticsCSV = async (req, res) => {
+  try {
+    const Invoice = require("../models/Invoice");
+    const Vendor = require("../models/Vendor");
+
+    // Spend by month
+    const monthlySpendAgg = await Invoice.aggregate([
+      { $match: { status: "Paid" } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, total: { $sum: "$grandTotal" } } },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // Spend by vendor category
+    const vendorSpendAgg = await Invoice.aggregate([
+      { $match: { status: "Paid" } },
+      { $group: { _id: "$vendorId", total: { $sum: "$grandTotal" } } },
+    ]);
+    const categoryTotals = {};
+    for (const item of vendorSpendAgg) {
+      if (item._id) {
+        const vendor = await Vendor.findById(item._id);
+        const cat = vendor ? vendor.category || "General Supply" : "General Supply";
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + item.total;
+      }
+    }
+
+    // Build CSV
+    let csv = "Section,Label,Value (INR)\n";
+
+    csv += "\nMonthly Spend,,\n";
+    for (const row of monthlySpendAgg) {
+      csv += `Monthly Spend,${row._id},${row.total.toFixed(2)}\n`;
+    }
+
+    csv += "\nCategory Spend,,\n";
+    for (const [cat, val] of Object.entries(categoryTotals)) {
+      csv += `Category Spend,${cat},${val.toFixed(2)}\n`;
+    }
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="vendorbridge_spend_analytics_${new Date().toISOString().substring(0, 10)}.csv"`);
+    res.status(200).send(csv);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

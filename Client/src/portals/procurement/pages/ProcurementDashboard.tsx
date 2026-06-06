@@ -43,6 +43,7 @@ export default function ProcurementDashboard() {
   const [awaitingApprovalCount, setAwaitingApprovalCount] = useState(0);
   const [totalPOsCount, setTotalPOsCount] = useState(0);
   const [analytics, setAnalytics] = useState<any>(null);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -86,6 +87,15 @@ export default function ProcurementDashboard() {
       if (poRes.ok && poData.success) {
         setTotalPOsCount(poData.purchaseOrders.length);
       }
+
+      // Fetch Activity Logs
+      const activityRes = await fetch("http://localhost:8000/api/activity-logs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const activityData = await activityRes.json();
+      if (activityRes.ok && activityData.success) {
+        setActivityLogs(activityData.logs.slice(0, 10));
+      }
     } catch (err) {
       console.error("Failed to load dashboard metrics:", err);
     }
@@ -98,20 +108,16 @@ export default function ProcurementDashboard() {
   const handleQuickAction = (label: string) => {
     if (label === "Create RFQ") {
       navigate("/procurement/rfqs/new");
-    } else if (
-      label === "Browse RFQs" ||
-      label === "View RFQs" ||
-      label === "Compare Quotes" ||
-      label === "Generate PO" ||
-      label === "Approval Status"
-    ) {
-      navigate("/procurement/rfqs");
     } else if (label === "Browse Vendors") {
       navigate("/procurement/vendors");
+    } else if (label === "Compare Quotes") {
+      navigate("/procurement/rfqs");
+    } else if (label === "Generate PO") {
+      navigate("/procurement/purchase-orders");
     } else if (label === "View Invoices") {
       navigate("/procurement/invoices");
-    } else {
-      alert(`The "${label}" feature will be wired in the upcoming workflow stages.`);
+    } else if (label === "Approval Status") {
+      navigate("/procurement/rfqs");
     }
   };
 
@@ -154,6 +160,15 @@ export default function ProcurementDashboard() {
       bg: "bg-violet-50",
       border: "border-violet-100",
     },
+    {
+      label: "Paid Invoices",
+      value: (analytics?.metrics?.paidInvoicesCount || 0).toString(),
+      sub: `${analytics?.metrics?.unpaidInvoicesCount || 0} unpaid / pending`,
+      icon: TrendingUp,
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      border: "border-rose-100",
+    },
   ];
 
   const spendByMonth = analytics?.spendByMonth || [];
@@ -192,7 +207,7 @@ export default function ProcurementDashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {kpiCards.map(({ label, value, sub, icon: Icon, color, bg, border }) => (
             <div key={label} className={`bg-white border ${border} rounded-xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow`}>
               <div className="flex items-center justify-between">
@@ -235,82 +250,122 @@ export default function ProcurementDashboard() {
         </div>
 
         {/* Bottom row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Spend Trend Card */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">Expenditure Trend Overview</h3>
-                <p className="text-xs text-gray-400">Monthly cleared purchase settlements</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Charts (2/3 width) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Spend Trend Card */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Expenditure Trend Overview</h3>
+                  <p className="text-xs text-gray-400">Monthly cleared purchase settlements</p>
+                </div>
+                <button
+                  onClick={() => navigate("/procurement/reports")}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                >
+                  Full Analytics Report &rarr;
+                </button>
               </div>
-              <button
-                onClick={() => navigate("/procurement/reports")}
-                className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
-              >
-                Full Analytics Report &rarr;
-              </button>
+
+              {spendByMonth.length === 0 ? (
+                <EmptyState icon={TrendingUp} title="No spend data" desc="Spend trend will show once purchase orders are settled." />
+              ) : (
+                <div className="h-44 flex items-end justify-between gap-1.5 border-b border-gray-100 pb-2 pt-4">
+                  {spendByMonth.slice(-6).map((item: any) => {
+                    const pct = (item.amount / maxMonthAmount) * 100;
+                    return (
+                      <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
+                        <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[9px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-10 shadow">
+                          ₹{item.amount.toLocaleString("en-IN")}
+                        </div>
+                        <div
+                          style={{ height: `${pct || 5}%` }}
+                          className="w-full max-w-[28px] rounded-t bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-700 group-hover:to-indigo-500 transition-all"
+                        />
+                        <span className="text-[9px] text-gray-400 mt-1 font-mono">{item.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {spendByMonth.length === 0 ? (
-              <EmptyState icon={TrendingUp} title="No spend data" desc="Spend trend will show once purchase orders are settled." />
-            ) : (
-              <div className="h-44 flex items-end justify-between gap-1.5 border-b border-gray-100 pb-2 pt-4">
-                {spendByMonth.slice(-6).map((item: any) => {
-                  const pct = (item.amount / maxMonthAmount) * 100;
-                  return (
-                    <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
-                      <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[9px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-10 shadow">
-                        ₹{item.amount.toLocaleString("en-IN")}
-                      </div>
-                      <div
-                        style={{ height: `${pct || 5}%` }}
-                        className="w-full max-w-[28px] rounded-t bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-700 group-hover:to-indigo-500 transition-all"
-                      />
-                      <span className="text-[9px] text-gray-400 mt-1 font-mono">{item.month}</span>
-                    </div>
-                  );
-                })}
+            {/* Spend By Category Card */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Top Categories Allocation</h3>
+                  <p className="text-xs text-gray-400">Spend breakdown by supplier sector</p>
+                </div>
+                <button
+                  onClick={() => navigate("/procurement/reports")}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                >
+                  Full Analytics Report &rarr;
+                </button>
               </div>
-            )}
+
+              {spendByCategory.length === 0 ? (
+                <EmptyState icon={Users} title="No category data" desc="Category metrics will build as suppliers receive payments." />
+              ) : (
+                <div className="space-y-2.5 pt-2">
+                  {spendByCategory.slice(0, 3).map((item: any, idx: number) => {
+                    const pct = (item.value / totalCategorySpend) * 100;
+                    const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                    return (
+                      <div key={item.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-medium text-gray-700">
+                          <span className="truncate max-w-[150px]">{item.name}</span>
+                          <span>{pct.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-150 rounded-full overflow-hidden">
+                          <div style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-mono">₹{item.value.toLocaleString("en-IN")}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Spend By Category Card */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">Top Categories Allocation</h3>
-                <p className="text-xs text-gray-400">Spend breakdown by supplier sector</p>
-              </div>
-              <button
-                onClick={() => navigate("/procurement/reports")}
-                className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
-              >
-                Full Analytics Report &rarr;
-              </button>
+          {/* Recent Activity (1/3 width) */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Recent Activity Stream</h3>
+              <p className="text-xs text-gray-400">Live feed of actions across VendorBridge</p>
             </div>
-
-            {spendByCategory.length === 0 ? (
-              <EmptyState icon={Users} title="No category data" desc="Category metrics will build as suppliers receive payments." />
+            
+            {activityLogs.length === 0 ? (
+              <div className="py-20 text-center text-xs text-gray-400 flex flex-col items-center justify-center gap-2">
+                <FileText size={20} className="text-gray-300" />
+                <span>No activities logged.</span>
+              </div>
             ) : (
-              <div className="space-y-2.5 pt-2">
-                {spendByCategory.slice(0, 3).map((item: any, idx: number) => {
-                  const pct = (item.value / totalCategorySpend) * 100;
-                  const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
-                  return (
-                    <div key={item.name} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs font-medium text-gray-700">
-                        <span className="truncate max-w-[150px]">{item.name}</span>
-                        <span>{pct.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-gray-150 rounded-full overflow-hidden">
-                        <div style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-mono">₹{item.value.toLocaleString("en-IN")}</span>
+              <div className="space-y-3.5 overflow-y-auto max-h-[360px] pr-1 flex-1 py-1">
+                {activityLogs.map((log) => (
+                  <div key={log._id} className="flex gap-2.5 text-xs border-b border-gray-50 pb-2.5 last:border-0 last:pb-0">
+                    <div className="h-6 w-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <FileText size={11} />
                     </div>
-                  );
-                })}
+                    <div className="min-w-0">
+                      <div className="text-gray-800 leading-normal font-medium">{log.description}</div>
+                      <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5">
+                        <span className="font-semibold text-gray-500">{log.userId ? `${log.userId.firstName} ${log.userId.lastName}` : "System"}</span>
+                        <span>•</span>
+                        <span>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+            
+            <div className="bg-gray-50 -mx-5 -mb-5 px-5 py-3 border-t border-gray-150 rounded-b-xl text-center">
+              <span className="text-[10px] font-bold text-gray-400 tracking-wider">REALTIME WORKFLOW STREAM</span>
+            </div>
           </div>
         </div>
       </main>

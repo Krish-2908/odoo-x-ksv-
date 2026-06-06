@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar, { type NavItem } from "@/components/shared/Navbar";
-import { FileText, Plus, Search, Calendar, Users, Eye, SlidersHorizontal, AlertCircle } from "lucide-react";
+import { FileText, Plus, Search, Calendar, Users, Eye, SlidersHorizontal, AlertCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -62,6 +62,28 @@ export default function RFQList() {
     }
   };
 
+  const handleDeleteRFQ = async (rfqId: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this draft RFQ?")) {
+      return;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch(`http://localhost:8000/api/rfqs/${rfqId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchRFQs(token);
+      } else {
+        setServerError(data.message || "Failed to delete RFQ.");
+      }
+    } catch (err) {
+      setServerError("Could not delete RFQ due to server connection error.");
+    }
+  };
+
   const handleNavbarNavigate = (item: NavItem) => {
     if (item.path) navigate(item.path);
   };
@@ -76,7 +98,22 @@ export default function RFQList() {
     }[status] || "bg-gray-100 text-gray-700 border-gray-200";
 
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${style}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${style}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const getApprovalStatusBadge = (status: string) => {
+    if (!status) return null;
+    const style = {
+      Approved: "bg-emerald-50 text-emerald-700 border-emerald-250",
+      "Pending Approval": "bg-amber-50 text-amber-700 border-amber-250",
+      Rejected: "bg-rose-50 text-rose-700 border-rose-250",
+    }[status] || "bg-gray-50 text-gray-600 border-gray-200";
+
+    return (
+      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${style}`}>
         {status}
       </span>
     );
@@ -190,9 +227,10 @@ export default function RFQList() {
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-semibold text-xs">
                     <th className="p-4 w-1/3">RFQ TITLE</th>
                     <th className="p-4">STATUS</th>
+                    <th className="p-4">APPROVAL STATUS</th>
                     <th className="p-4">ITEMS</th>
                     <th className="p-4">DEADLINE</th>
-                    <th className="p-4">VENDORS</th>
+                    <th className="p-4">VENDORS & BIDS</th>
                     <th className="p-4 text-right">ACTION</th>
                   </tr>
                 </thead>
@@ -206,6 +244,7 @@ export default function RFQList() {
                         </div>
                       </td>
                       <td className="p-4">{getStatusBadge(rfq.status)}</td>
+                      <td className="p-4">{getApprovalStatusBadge(rfq.approvalStatus)}</td>
                       <td className="p-4 text-gray-700">
                         {rfq.items.length} {rfq.items.length === 1 ? "item" : "items"}
                       </td>
@@ -219,20 +258,37 @@ export default function RFQList() {
                         </div>
                       </td>
                       <td className="p-4 text-gray-600">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <Users size={13} className="text-gray-400" />
-                          {rfq.assignedVendors.length} assigned
+                        <div className="flex flex-col gap-0.5 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Users size={13} className="text-gray-400" />
+                            <span>{rfq.assignedVendors.length} assigned</span>
+                          </div>
+                          <div className="text-[10px] text-blue-600 font-semibold">
+                            {rfq.quoteCount || 0} {rfq.quoteCount === 1 ? "quote" : "quotes"} received
+                          </div>
                         </div>
                       </td>
                       <td className="p-4 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => navigate(`/procurement/rfqs/${rfq._id}`)}
-                          className="h-8 px-2.5 hover:bg-gray-100 hover:text-gray-900 gap-1 text-xs text-blue-600"
-                        >
-                          <Eye size={13} /> View
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => navigate(`/procurement/rfqs/${rfq._id}`)}
+                            className="h-8 px-2 hover:bg-gray-100 hover:text-gray-900 gap-1 text-xs text-blue-600"
+                          >
+                            <Eye size={13} /> View
+                          </Button>
+                          {rfq.status === "Draft" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteRFQ(rfq._id)}
+                              className="h-8 px-2 hover:bg-rose-50 text-rose-600 hover:text-rose-700 gap-1 text-xs"
+                            >
+                              <Trash2 size={13} /> Delete
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

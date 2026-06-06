@@ -35,9 +35,18 @@ export default function RFQDetails() {
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "comparison">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "comparison" | "timeline">("overview");
   const [quotations, setQuotations] = useState<any[]>([]);
   const [quotationsLoading, setQuotationsLoading] = useState(true);
+
+  // Edit Mode States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [editAssignedVendors, setEditAssignedVendors] = useState<string[]>([]);
+  const [allVendors, setAllVendors] = useState<any[]>([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -94,6 +103,87 @@ export default function RFQDetails() {
     }
   };
 
+  const fetchAllVendors = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const res = await fetch("http://localhost:8000/api/vendors", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAllVendors(data.vendors.filter((v: any) => v.status !== "Suspended"));
+      }
+    } catch (err) {
+      console.error("Failed to load vendors:", err);
+    }
+  };
+
+  const startEditing = () => {
+    if (!rfq) return;
+    setEditTitle(rfq.title);
+    setEditDescription(rfq.description || "");
+    
+    // format to YYYY-MM-DDTHH:MM local datetime for datetime-local inputs
+    const date = new Date(rfq.deadline);
+    const offset = date.getTimezoneOffset() * 60000;
+    const localTime = new Date(date.getTime() - offset).toISOString().slice(0, 16);
+    setEditDeadline(localTime);
+    
+    setEditItems(
+      rfq.items.map((it: any) => ({
+        productName: it.productName,
+        quantity: it.quantity,
+        specs: it.specs || "",
+      }))
+    );
+    setEditAssignedVendors(rfq.assignedVendors.map((v: any) => v._id));
+    fetchAllVendors();
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim()) {
+      alert("Title is required.");
+      return;
+    }
+    if (editItems.length === 0) {
+      alert("At least one requested item is required.");
+      return;
+    }
+    
+    setActionLoading(true);
+    setServerError("");
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/rfqs/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: editTitle,
+          description: editDescription,
+          deadline: editDeadline,
+          items: editItems,
+          assignedVendors: editAssignedVendors,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsEditing(false);
+        fetchRFQDetails(token);
+      } else {
+        setServerError(data.message || "Failed to update RFQ.");
+      }
+    } catch (err) {
+      setServerError("Network error. Could not update RFQ.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSelectBid = async (quotationId: string, remarks?: string) => {
     setActionLoading(true);
     setServerError("");
@@ -147,6 +237,35 @@ export default function RFQDetails() {
       }
     } catch (err) {
       setServerError("Network error. Could not publish.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCloseRFQ = async () => {
+    if (!window.confirm("Are you sure you want to manually close bidding for this RFQ?")) return;
+    if (actionLoading) return;
+    setActionLoading(true);
+    setServerError("");
+    const token = localStorage.getItem("token");
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/rfqs/${id}/close`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRfq(data.rfq);
+      } else {
+        setServerError(data.message || "Failed to close RFQ.");
+      }
+    } catch (err) {
+      setServerError("Network error. Could not close RFQ.");
     } finally {
       setActionLoading(false);
     }
@@ -227,6 +346,10 @@ export default function RFQDetails() {
     );
   };
 
+  const hasSubmittedQuote = (vendorId: string) => {
+    return quotations.some(q => q.vendorId?._id === vendorId || q.vendorId === vendorId);
+  };
+
   if (!user) return <LoadingScreen />;
 
   return (
@@ -247,20 +370,59 @@ export default function RFQDetails() {
 
           {rfq && rfq.status === "Draft" && (
             <div className="flex items-center gap-2">
+              {!isEditing ? (
+                <>
+                  <Button
+                    onClick={startEditing}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs h-8 px-3 font-semibold border border-gray-200"
+                  >
+                    Edit Draft
+                  </Button>
+                  <Button
+                    onClick={handlePublish}
+                    disabled={actionLoading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 gap-1 shadow-sm font-semibold"
+                  >
+                    <Play size={13} fill="white" /> Publish RFQ
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDelete}
+                    disabled={actionLoading}
+                    className="text-red-600 hover:bg-red-50 hover:text-red-700 text-xs h-8 px-3 gap-1 border-red-200"
+                  >
+                    <Trash2 size={13} /> Delete Draft
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={actionLoading}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3 font-semibold shadow-sm"
+                  >
+                    Save Changes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditing(false)}
+                    className="text-gray-500 hover:bg-gray-50 text-xs h-8 px-3 border-gray-200"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {rfq && rfq.status === "Open" && (
+            <div className="flex items-center gap-2">
               <Button
-                onClick={handlePublish}
+                onClick={handleCloseRFQ}
                 disabled={actionLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 gap-1 shadow-sm font-semibold"
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs h-8 px-3.5 gap-1 shadow-sm font-semibold"
               >
-                <Play size={13} fill="white" /> Publish RFQ
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleDelete}
-                disabled={actionLoading}
-                className="text-red-600 hover:bg-red-50 hover:text-red-700 text-xs h-8 px-3 gap-1 border-red-200"
-              >
-                <Trash2 size={13} /> Delete Draft
+                <Clock size={13} /> Close Bidding
               </Button>
             </div>
           )}
@@ -332,20 +494,20 @@ export default function RFQDetails() {
             {/* Main Content (2 columns wide) */}
             <div className="lg:col-span-2 space-y-6">
               {/* Tab Selector */}
-              {rfq.status !== "Draft" && (
-                <div className="flex border-b border-gray-200 gap-4 mb-2">
+              <div className="flex border-b border-gray-200 gap-4 mb-2">
+                <button
+                  onClick={() => { setIsEditing(false); setActiveTab("overview"); }}
+                  className={`pb-2.5 text-xs font-bold transition-all relative ${
+                    activeTab === "overview"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-400 hover:text-gray-800"
+                  }`}
+                >
+                  RFQ Overview
+                </button>
+                {rfq.status !== "Draft" && (
                   <button
-                    onClick={() => setActiveTab("overview")}
-                    className={`pb-2.5 text-xs font-bold transition-all relative ${
-                      activeTab === "overview"
-                        ? "text-blue-600 border-b-2 border-blue-600"
-                        : "text-gray-400 hover:text-gray-800"
-                    }`}
-                  >
-                    RFQ Overview
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("comparison")}
+                    onClick={() => { setIsEditing(false); setActiveTab("comparison"); }}
                     className={`pb-2.5 text-xs font-bold transition-all relative flex items-center gap-1.5 ${
                       activeTab === "comparison"
                         ? "text-blue-600 border-b-2 border-blue-600"
@@ -359,10 +521,159 @@ export default function RFQDetails() {
                       </span>
                     )}
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => { setIsEditing(false); setActiveTab("timeline"); }}
+                  className={`pb-2.5 text-xs font-bold transition-all relative ${
+                    activeTab === "timeline"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-400 hover:text-gray-800"
+                  }`}
+                >
+                  Audit Timeline
+                </button>
+              </div>
 
-              {activeTab === "overview" ? (
+              {isEditing ? (
+                <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm text-xs">
+                  <h2 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">Edit Draft Request for Quotation</h2>
+                  
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-gray-700">RFQ Title *</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full h-9 border rounded-md px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-gray-700">Detailed Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      rows={3}
+                      className="w-full border rounded-md p-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 whitespace-pre-wrap"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-gray-700">Submission Deadline *</label>
+                    <input
+                      type="datetime-local"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                      className="w-full h-9 border rounded-md px-3 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Edit Items Section */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
+                      <span className="font-bold text-gray-700">Requested Items ({editItems.length})</span>
+                      <Button
+                        type="button"
+                        onClick={() => setEditItems([...editItems, { productName: "", quantity: 1, specs: "" }])}
+                        variant="outline"
+                        className="h-7 text-[10px] gap-1 px-2 border-blue-200 text-blue-600"
+                      >
+                        + Add Item
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {editItems.map((item, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row gap-2 border border-gray-100 p-3 rounded-lg bg-gray-50/50 relative">
+                          <button
+                            type="button"
+                            onClick={() => setEditItems(editItems.filter((_, i) => i !== idx))}
+                            className="absolute right-2 top-2 text-rose-500 hover:text-rose-700"
+                            disabled={editItems.length === 1}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          
+                          <div className="flex-1 space-y-1">
+                            <span className="text-[10px] font-bold text-gray-500">Product Name *</span>
+                            <input
+                              type="text"
+                              value={item.productName}
+                              onChange={(e) => {
+                                const copy = [...editItems];
+                                copy[idx].productName = e.target.value;
+                                setEditItems(copy);
+                              }}
+                              className="w-full h-8 border rounded px-2.5 text-xs focus:outline-none"
+                              placeholder="e.g. Server Rack"
+                            />
+                          </div>
+
+                          <div className="w-24 space-y-1">
+                            <span className="text-[10px] font-bold text-gray-500">Qty *</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const copy = [...editItems];
+                                copy[idx].quantity = parseInt(e.target.value) || 1;
+                                setEditItems(copy);
+                              }}
+                              className="w-full h-8 border rounded px-2.5 text-xs focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="flex-[1.5] space-y-1">
+                            <span className="text-[10px] font-bold text-gray-500">Specs / Requirements</span>
+                            <input
+                              type="text"
+                              value={item.specs}
+                              onChange={(e) => {
+                                const copy = [...editItems];
+                                copy[idx].specs = e.target.value;
+                                setEditItems(copy);
+                              }}
+                              className="w-full h-8 border rounded px-2.5 text-xs focus:outline-none"
+                              placeholder="e.g. Dimensions, brand specs"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Edit Assigned Vendors */}
+                  <div className="space-y-3 pt-2">
+                    <span className="font-bold text-gray-700 block border-b border-gray-100 pb-1.5">Assign Invited Vendors</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto border border-gray-150 p-3 rounded-lg bg-gray-50/50">
+                      {allVendors.map((vendor) => {
+                        const isChecked = editAssignedVendors.includes(vendor._id);
+                        return (
+                          <label key={vendor._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setEditAssignedVendors(editAssignedVendors.filter(vid => vid !== vendor._id));
+                                } else {
+                                  setEditAssignedVendors([...editAssignedVendors, vendor._id]);
+                                }
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                            />
+                            <div className="min-w-0 text-left">
+                              <div className="font-semibold text-gray-800 truncate">{vendor.companyName}</div>
+                              <div className="text-[9px] text-gray-400">{vendor.category} · ⭐ {vendor.rating.toFixed(1)}</div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : activeTab === "overview" ? (
                 <>
                   {/* RFQ Meta Info Card */}
                   <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4 shadow-sm">
@@ -424,12 +735,12 @@ export default function RFQDetails() {
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-semibold text-gray-950 flex flex-wrap items-center gap-x-2 gap-y-1">
                               {item.productName}
-                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-gray-100 border border-gray-200 text-gray-650">
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-gray-100 border border-gray-200 text-gray-655">
                                 Qty: {item.quantity}
                               </span>
                             </div>
                             {item.specs && (
-                              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 border border-gray-150 p-2.5 rounded-lg">
+                              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 border border-gray-155 p-2.5 rounded-lg">
                                 <span className="font-semibold text-gray-600">Specs:</span> {item.specs}
                               </p>
                             )}
@@ -439,7 +750,7 @@ export default function RFQDetails() {
                     </div>
                   </div>
                 </>
-              ) : (
+              ) : activeTab === "comparison" ? (
                 <div className="space-y-6">
                   {quotationsLoading ? (
                     <div className="bg-white border border-gray-200 rounded-xl p-20 flex flex-col items-center justify-center gap-3">
@@ -453,6 +764,48 @@ export default function RFQDetails() {
                       onSelect={handleSelectBid}
                       actionLoading={actionLoading}
                     />
+                  )}
+                </div>
+              ) : (
+                /* Audit Trail / Timeline Tab */
+                <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6 shadow-sm text-xs">
+                  <h2 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2">
+                    Lifecycle Audit History
+                  </h2>
+                  {(!rfq.approvalTimeline || rfq.approvalTimeline.length === 0) ? (
+                    <div className="text-center py-12 text-xs text-gray-400">
+                      No workflow actions recorded on this solicitation yet.
+                    </div>
+                  ) : (
+                    <div className="relative border-l-2 border-gray-150 pl-5 ml-2.5 space-y-6 pt-1">
+                      {rfq.approvalTimeline.map((item: any, idx: number) => (
+                        <div key={item._id || idx} className="relative">
+                          {/* Dot marker */}
+                          <div className="absolute -left-[27px] top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-blue-600 shadow-sm" />
+                          <div className="space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-gray-950">{item.action}</span>
+                              <span className="text-[10px] text-gray-400 font-mono">
+                                {new Date(item.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="text-gray-500 font-medium flex items-center gap-1.5">
+                              <span>Action By:</span>
+                              <span className="text-gray-700 font-semibold">
+                                {item.actionBy
+                                  ? `${item.actionBy.firstName} ${item.actionBy.lastName} (${item.actionBy.role})`
+                                  : "System Agent"}
+                              </span>
+                            </div>
+                            {item.remarks && (
+                              <div className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 text-gray-650 leading-relaxed italic">
+                                Remarks: "{item.remarks}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
@@ -482,15 +835,26 @@ export default function RFQDetails() {
                         className="p-3 rounded-lg border border-gray-100 bg-gray-50/50 flex flex-col gap-1.5"
                       >
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-gray-800 truncate max-w-[170px]">
+                          <span className="font-semibold text-gray-800 truncate max-w-[150px]">
                             {vendor.companyName}
                           </span>
                           <span className="text-[10px] font-medium text-gray-500">
-                            ⭐ {vendor.rating.toFixed(1)}
+                            ⭐ {(vendor.rating || 5).toFixed(1)}
                           </span>
                         </div>
-                        <div className="text-[10px] text-gray-400 font-medium">
-                          Category: {vendor.category || "Unassigned"}
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-gray-400 font-medium">
+                            Category: {vendor.category || "Unassigned"}
+                          </span>
+                          {hasSubmittedQuote(vendor._id) ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              ✓ Submitted
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-100 animate-pulse">
+                              ⌛ Pending
+                            </span>
+                          )}
                         </div>
                         <div className="border-t border-gray-150/50 pt-1.5 mt-0.5 flex flex-col gap-1 text-[10px] text-gray-500">
                           <div>📧 {vendor.contactEmail}</div>

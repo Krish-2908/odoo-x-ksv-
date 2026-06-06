@@ -204,3 +204,25 @@ exports.getQuotationById = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// @desc    Get ALL quotations (Procurement Officer / Admin view)
+// @route   GET /api/quotations/all
+// @access  Private (Procurement Officer, Admin)
+exports.getAllQuotations = async (req, res) => {
+  try {
+    const { status, rfqId, vendorId } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (rfqId) filter.rfqId = rfqId;
+    if (vendorId) filter.vendorId = vendorId;
+
+    const quotations = await Quotation.find(filter)
+      .populate("vendorId", "companyName category contactEmail rating status")
+      .populate("rfqId", "title deadline status createdBy")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, count: quotations.length, quotations });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

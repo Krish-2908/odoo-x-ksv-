@@ -11,6 +11,13 @@ router
   .post(authorize("Vendor"), quotationController.submitQuotation)
   .get(authorize("Vendor"), quotationController.getMyQuotations);
 
+// All quotations listing (Procurement Officer / Admin)
+router.get(
+  "/all",
+  authorize("Procurement Officer", "Admin", "Manager"),
+  quotationController.getAllQuotations
+);
+
 router.get(
   "/rfq/:rfqId",
   authorize("Procurement Officer", "Admin", "Manager"),

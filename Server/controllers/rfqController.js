@@ -141,10 +141,18 @@ exports.getRFQs = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
+    const rfqsWithQuoteCount = [];
+    for (const r of rfqs) {
+      const quoteCount = await Quotation.countDocuments({ rfqId: r._id });
+      const rfqObj = r.toObject();
+      rfqObj.quoteCount = quoteCount;
+      rfqsWithQuoteCount.push(rfqObj);
+    }
+
     res.json({
       success: true,
-      count: rfqs.length,
-      rfqs,
+      count: rfqsWithQuoteCount.length,
+      rfqs: rfqsWithQuoteCount,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -162,7 +170,8 @@ exports.getRFQById = async (req, res) => {
       .populate({
         path: "selectedQuotation",
         populate: { path: "vendorId", select: "companyName rating category gstNumber contactEmail contactPhone" }
-      });
+      })
+      .populate("approvalTimeline.actionBy", "firstName lastName email role");
 
     if (!rfq) {
       return res.status(404).json({ message: "RFQ not found" });
@@ -358,7 +367,7 @@ exports.selectBid = async (req, res) => {
     await logActivity(
       req.user._id,
       "RFQ_BID_SELECTED",
-      `Selected bid proposal $${quotation.grandTotal} for RFQ: "${rfq.title}"`
+      `Selected bid proposal ₹${quotation.grandTotal} for RFQ: "${rfq.title}"`
     );
 
     res.json({
@@ -480,3 +489,29 @@ exports.rejectRFQ = async (req, res) => {
   }
 };
 
+// @desc    Close an open RFQ to stop accepting new quotations
+// @route   PUT /api/rfqs/:id/close
+// @access  Private (Procurement Officer)
+exports.closeRFQ = async (req, res) => {
+  try {
+    const rfq = await RFQ.findById(req.params.id);
+    if (!rfq) return res.status(404).json({ message: "RFQ not found." });
+
+    if (req.user.role !== "Procurement Officer") {
+      return res.status(403).json({ message: "Only Procurement Officers can close RFQs." });
+    }
+
+    if (rfq.status !== "Open") {
+      return res.status(400).json({ message: `RFQ must be 'Open' to close. Current status: '${rfq.status}'.` });
+    }
+
+    rfq.status = "Closed";
+    await rfq.save();
+
+    await logActivity(req.user._id, "RFQ_CLOSED", `Closed bidding for RFQ: "${rfq.title}"`);
+
+    res.json({ success: true, message: "RFQ closed. No further bids accepted.", rfq });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
