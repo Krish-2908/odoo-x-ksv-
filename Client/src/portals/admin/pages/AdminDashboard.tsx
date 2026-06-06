@@ -19,6 +19,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
+  Key,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -269,6 +270,32 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResetUserPassword = async (usr: any) => {
+    if (!confirm(`Are you sure you want to reset the password for ${usr.firstName} ${usr.lastName} to the default "User@123"?`)) {
+      return;
+    }
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8000/api/users/${usr._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password: "User@123" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Password for ${usr.firstName} has been reset to "User@123" successfully.`);
+        loadAllData(token);
+      } else {
+        alert(data.message || "Failed to reset password.");
+      }
+    } catch (err: any) {
+      alert("Error resetting password: " + err.message);
+    }
+  };
+
   const handleEditVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -402,6 +429,30 @@ export default function AdminDashboard() {
   const pendingVendors = vendors.filter((v) => v.status === "Pending Verification").length;
   const suspendedVendors = vendors.filter((v) => v.status === "Suspended").length;
 
+  // Precalculate advanced metrics
+  const avgCycleDays = analytics?.metrics?.avgCycleDays || 0;
+  const totalSavingsINR = analytics?.metrics?.totalSavingsINR || 0;
+  
+  const unpaidWeek = analytics?.agingAnalysis?.underWeek || 0;
+  const unpaidMonth = analytics?.agingAnalysis?.underMonth || 0;
+  const unpaidOver = analytics?.agingAnalysis?.overMonth || 0;
+  const totalUnpaid = unpaidWeek + unpaidMonth + unpaidOver;
+
+  // For category spend progress bars
+  const spendByCategory = analytics?.spendByCategory || [];
+  const totalSpendByCategory = spendByCategory.reduce((sum: number, item: any) => sum + item.value, 0);
+
+  // For monthly spend trend chart
+  const spendByMonth = analytics?.spendByMonth || [];
+
+  // For vendor performance leaderboard
+  const vendorPerformance = analytics?.vendorPerformance || [];
+  // Sort vendor performance by rating, then by winRate descending
+  const sortedPerformance = [...vendorPerformance].sort((a: any, b: any) => {
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    return b.winRate - a.winRate;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       <Navbar
@@ -458,7 +509,8 @@ export default function AdminDashboard() {
         {/* Dashboard Tab */}
         {currentTab === "Dashboard" && (
           <div className="space-y-7 animate-in fade-in duration-300">
-            {/* KPI Cards */}
+
+            {/* KPI Cards Row 1 – Core System Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white border border-blue-100 rounded-xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
@@ -469,7 +521,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">{users.length}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">Active inside directories</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Across all portal roles</div>
                 </div>
               </div>
 
@@ -497,9 +549,9 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">
-                    ₹{(analytics?.metrics?.totalSpendINR || analytics?.metrics?.totalSpendUSD)?.toLocaleString("en-IN") || "0.00"}
+                    ₹{(analytics?.metrics?.totalSpendINR || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
-                  <div className="text-xs text-gray-400 mt-0.5">Cleared via Razorpay</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Paid invoices cumulative</div>
                 </div>
               </div>
 
@@ -512,12 +564,312 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">{logs.length}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">Logged actions stored</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Immutable log entries</div>
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions Shortcuts */}
+            {/* KPI Cards Row 2 – Advanced Operational Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Procurement Velocity */}
+              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white flex flex-col gap-3 shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-100">Procurement Velocity</span>
+                  <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center">
+                    <Clock size={18} className="text-white" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold">
+                    {avgCycleDays > 0 ? `${avgCycleDays}d` : "—"}
+                  </div>
+                  <div className="text-xs text-blue-200 mt-1">Avg. RFQ-to-payment cycle</div>
+                </div>
+                <div className="mt-auto">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    avgCycleDays === 0
+                      ? "bg-white/20 text-white"
+                      : avgCycleDays <= 14
+                      ? "bg-emerald-400/30 text-emerald-100"
+                      : avgCycleDays <= 30
+                      ? "bg-amber-400/30 text-amber-100"
+                      : "bg-red-400/30 text-red-100"
+                  }`}>
+                    {avgCycleDays === 0
+                      ? "No completed POs"
+                      : avgCycleDays <= 14
+                      ? "⚡ Fast"
+                      : avgCycleDays <= 30
+                      ? "⏱ Average"
+                      : "⚠ Slow"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Negotiated Cost Savings */}
+              <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-5 text-white flex flex-col gap-3 shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-emerald-100">Negotiated Savings</span>
+                  <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center">
+                    <ShieldCheck size={18} className="text-white" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold">
+                    ₹{totalSavingsINR.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </div>
+                  <div className="text-xs text-emerald-200 mt-1">Savings vs avg competitor quote</div>
+                </div>
+                <div className="mt-auto">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-white/20 text-white">
+                    {totalSavingsINR > 0 ? "✓ Active savings achieved" : "No comparative bids yet"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Outstanding Payables */}
+              <div className="bg-gradient-to-br from-rose-600 to-rose-700 rounded-xl p-5 text-white flex flex-col gap-3 shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-rose-100">Outstanding Payables</span>
+                  <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center">
+                    <AlertTriangle size={18} className="text-white" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold">
+                    ₹{totalUnpaid.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </div>
+                  <div className="text-xs text-rose-200 mt-1">Total unpaid invoices outstanding</div>
+                </div>
+                <div className="mt-auto">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    unpaidOver > 0 ? "bg-white/20 text-white" : "bg-emerald-400/30 text-emerald-100"
+                  }`}>
+                    {unpaidOver > 0 ? `⚠ ₹${unpaidOver.toLocaleString("en-IN")} overdue >30d` : "✓ No critically overdue"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Analytics Row 1 – Monthly Spend Chart + Aged Payables */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Monthly Spend SVG Bar Chart */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Monthly Spend Trend</h3>
+                  <span className="text-xs text-gray-400">Paid invoices by month (₹)</span>
+                </div>
+                {spendByMonth.length === 0 ? (
+                  <div className="flex items-center justify-center h-36 text-gray-300 text-xs">
+                    No spend data available yet
+                  </div>
+                ) : (() => {
+                  const maxVal = Math.max(...spendByMonth.map((m: any) => m.amount), 1);
+                  const chartH = 120;
+                  const barW = Math.max(16, Math.floor((300 - (spendByMonth.length - 1) * 8) / Math.max(spendByMonth.length, 1)));
+                  const gap = 8;
+                  const totalW = spendByMonth.length * barW + (spendByMonth.length - 1) * gap;
+
+                  return (
+                    <div className="overflow-x-auto">
+                      <svg
+                        width={Math.max(totalW + 8, 300)}
+                        height={chartH + 36}
+                        viewBox={`0 0 ${Math.max(totalW + 8, 300)} ${chartH + 36}`}
+                        className="block"
+                      >
+                        {spendByMonth.map((m: any, i: number) => {
+                          const bh = Math.max(4, (m.amount / maxVal) * chartH);
+                          const x = i * (barW + gap) + 4;
+                          const y = chartH - bh;
+                          const label = m.month?.slice(5) || "";
+                          return (
+                            <g key={m.month}>
+                              <rect
+                                x={x}
+                                y={y}
+                                width={barW}
+                                height={bh}
+                                rx={3}
+                                fill="#6366f1"
+                                opacity={0.8}
+                              />
+                              <text
+                                x={x + barW / 2}
+                                y={chartH + 14}
+                                textAnchor="middle"
+                                fontSize="9"
+                                fill="#9ca3af"
+                              >
+                                {label}
+                              </text>
+                            </g>
+                          );
+                        })}
+                        {/* Zero baseline */}
+                        <line x1={0} y1={chartH} x2={Math.max(totalW + 8, 300)} y2={chartH} stroke="#f3f4f6" strokeWidth={1} />
+                      </svg>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Invoice Aging Analysis – Stacked Horizontal Bars */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Invoice Aging Analysis</h3>
+                  <span className="text-xs text-gray-400">Outstanding payables breakdown</span>
+                </div>
+
+                {totalUnpaid === 0 ? (
+                  <div className="flex items-center justify-center h-24 gap-2 text-emerald-600 text-xs font-medium">
+                    <CheckCircle2 size={16} /> All invoices cleared — no outstanding payables
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-2">
+                    {/* Total combined bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span className="font-medium">Total Unpaid</span>
+                        <span className="font-bold text-gray-900">₹{totalUnpaid.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden flex">
+                        <div
+                          className="h-full bg-emerald-400 transition-all"
+                          style={{ width: `${totalUnpaid > 0 ? (unpaidWeek / totalUnpaid) * 100 : 0}%` }}
+                        />
+                        <div
+                          className="h-full bg-amber-400 transition-all"
+                          style={{ width: `${totalUnpaid > 0 ? (unpaidMonth / totalUnpaid) * 100 : 0}%` }}
+                        />
+                        <div
+                          className="h-full bg-red-500 transition-all"
+                          style={{ width: `${totalUnpaid > 0 ? (unpaidOver / totalUnpaid) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Individual age bands */}
+                    {[
+                      { label: "0–7 Days (Recent)", value: unpaidWeek, color: "bg-emerald-400", textColor: "text-emerald-700", bgColor: "bg-emerald-50" },
+                      { label: "8–30 Days (Due)", value: unpaidMonth, color: "bg-amber-400", textColor: "text-amber-700", bgColor: "bg-amber-50" },
+                      { label: "30+ Days (Overdue)", value: unpaidOver, color: "bg-red-500", textColor: "text-red-700", bgColor: "bg-red-50" },
+                    ].map((band) => (
+                      <div key={band.label} className={`rounded-lg p-3 ${band.bgColor} space-y-1.5`}>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className={`font-semibold ${band.textColor}`}>{band.label}</span>
+                          <span className={`font-bold ${band.textColor}`}>₹{band.value.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/60 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${band.color} rounded-full transition-all`}
+                            style={{ width: `${totalUnpaid > 0 ? Math.min((band.value / totalUnpaid) * 100, 100) : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Analytics Row 2 – Category Breakdown + Vendor Compliance Leaderboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Spend by Category Breakdown */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Spend by Category</h3>
+                  <span className="text-xs text-gray-400">Distribution of paid invoices</span>
+                </div>
+                {spendByCategory.length === 0 ? (
+                  <div className="flex items-center justify-center h-28 text-gray-300 text-xs">
+                    No category spend data yet
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {[...spendByCategory]
+                      .sort((a: any, b: any) => b.value - a.value)
+                      .map((cat: any, idx: number) => {
+                        const pct = totalSpendByCategory > 0 ? Math.round((cat.value / totalSpendByCategory) * 100) : 0;
+                        const colors = ["bg-violet-500", "bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-indigo-500"];
+                        const col = colors[idx % colors.length];
+                        return (
+                          <div key={cat.name} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${col}`} />
+                                <span className="font-medium text-gray-700">{cat.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-500">
+                                <span>₹{cat.value.toLocaleString("en-IN")}</span>
+                                <span className="font-bold text-gray-900">{pct}%</span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${col} rounded-full transition-all`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* Vendor Compliance Leaderboard */}
+              <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Vendor Compliance Leaderboard</h3>
+                  <button
+                    onClick={() => setCurrentTab("Vendor Management")}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    View All
+                  </button>
+                </div>
+                {sortedPerformance.length === 0 ? (
+                  <div className="flex items-center justify-center h-28 text-gray-300 text-xs">
+                    No vendor performance data yet
+                  </div>
+                ) : (
+                  <div className="space-y-2 overflow-y-auto max-h-64">
+                    {sortedPerformance.slice(0, 8).map((vp: any, idx: number) => (
+                      <div key={vp.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          idx === 0 ? "bg-amber-100 text-amber-700" :
+                          idx === 1 ? "bg-gray-100 text-gray-600" :
+                          idx === 2 ? "bg-orange-100 text-orange-700" :
+                          "bg-gray-50 text-gray-400"
+                        }`}>
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-gray-900 truncate">{vp.companyName}</div>
+                          <div className="text-[10px] text-gray-400">{vp.category} · {vp.totalPOs} POs</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-0.5 text-amber-500 text-xs font-semibold">
+                            <Star size={10} fill="currentColor" />
+                            {vp.rating?.toFixed(1)}
+                          </div>
+                          <div className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                            vp.winRate >= 50 ? "bg-emerald-50 text-emerald-700" :
+                            vp.winRate > 0 ? "bg-blue-50 text-blue-700" :
+                            "bg-gray-50 text-gray-500"
+                          }`}>
+                            {vp.winRate}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
             <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-900">Administrative Actions</h2>
@@ -608,12 +960,11 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* User Role Distribution Charts */}
+              {/* User Role Distribution Donut Chart */}
               <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-4">User Roles Breakdown</h3>
                   <div className="flex items-center justify-center py-3">
-                    {/* Native CSS SVG Donut Chart */}
                     <svg className="w-36 h-36" viewBox="0 0 36 36">
                       <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f3f4f6" strokeWidth="3" />
                       {users.length > 0 && (() => {
@@ -622,58 +973,20 @@ export default function AdminDashboard() {
                         const managers = users.filter((u) => u.role === "Manager").length;
                         const vendorsCount = users.filter((u) => u.role === "Vendor").length;
                         const total = users.length;
-
                         const adminPct = (admins / total) * 100;
                         const poPct = (pos / total) * 100;
                         const managerPct = (managers / total) * 100;
                         const vendorPct = (vendorsCount / total) * 100;
-
                         return (
                           <>
-                            {/* Admins - Purple */}
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="15.915"
-                              fill="none"
-                              stroke="#a855f7"
-                              strokeWidth="3.2"
-                              strokeDasharray={`${adminPct} ${100 - adminPct}`}
-                              strokeDashoffset="25"
-                            />
-                            {/* POs - Blue */}
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="15.915"
-                              fill="none"
-                              stroke="#3b82f6"
-                              strokeWidth="3.2"
-                              strokeDasharray={`${poPct} ${100 - poPct}`}
-                              strokeDashoffset={25 - adminPct}
-                            />
-                            {/* Managers - Green */}
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="15.915"
-                              fill="none"
-                              stroke="#10b981"
-                              strokeWidth="3.2"
-                              strokeDasharray={`${managerPct} ${100 - managerPct}`}
-                              strokeDashoffset={25 - adminPct - poPct}
-                            />
-                            {/* Vendors - Orange */}
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="15.915"
-                              fill="none"
-                              stroke="#f97316"
-                              strokeWidth="3.2"
-                              strokeDasharray={`${vendorPct} ${100 - vendorPct}`}
-                              strokeDashoffset={25 - adminPct - poPct - managerPct}
-                            />
+                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#a855f7" strokeWidth="3.2"
+                              strokeDasharray={`${adminPct} ${100 - adminPct}`} strokeDashoffset="25" />
+                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" strokeWidth="3.2"
+                              strokeDasharray={`${poPct} ${100 - poPct}`} strokeDashoffset={25 - adminPct} />
+                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="3.2"
+                              strokeDasharray={`${managerPct} ${100 - managerPct}`} strokeDashoffset={25 - adminPct - poPct} />
+                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f97316" strokeWidth="3.2"
+                              strokeDasharray={`${vendorPct} ${100 - vendorPct}`} strokeDashoffset={25 - adminPct - poPct - managerPct} />
                           </>
                         );
                       })()}
@@ -702,6 +1015,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
 
         {/* User Management Tab */}
         {currentTab === "User Management" && (
