@@ -3,11 +3,14 @@ const router = express.Router();
 const analyticsController = require("../controllers/analyticsController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
-// Require auth and specific internal roles for analytics endpoints
+// All analytics routes require auth
 router.use(protect);
-router.use(authorize("Admin", "Procurement Officer", "Manager"));
 
-router.get("/", analyticsController.getAnalyticsStats);
-router.get("/export", analyticsController.exportAnalyticsCSV);
+// Vendor self-analytics — accessible only to Vendors
+router.get("/vendor-self", authorize("Vendor"), analyticsController.getVendorSelfAnalytics);
+
+// Internal-role-only analytics
+router.get("/", authorize("Admin", "Procurement Officer", "Manager"), analyticsController.getAnalyticsStats);
+router.get("/export", authorize("Admin", "Procurement Officer", "Manager"), analyticsController.exportAnalyticsCSV);
 
 module.exports = router;

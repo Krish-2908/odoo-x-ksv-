@@ -53,6 +53,21 @@ const vendorSchema = new mongoose.Schema(
       min: 0,
       max: 5,
     },
+    address: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    website: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    companyBio: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,

@@ -68,7 +68,18 @@ exports.getVendorById = async (req, res) => {
 // @access  Private (Vendor Owner, Admin)
 exports.updateVendorProfile = async (req, res) => {
   try {
-    const { companyName, category, gstNumber, contactEmail, contactPhone, status, rating } = req.body;
+    const {
+      companyName,
+      category,
+      gstNumber,
+      contactEmail,
+      contactPhone,
+      address,
+      website,
+      companyBio,
+      status,
+      rating,
+    } = req.body;
 
     const vendor = await Vendor.findById(req.params.id);
 
@@ -90,6 +101,9 @@ exports.updateVendorProfile = async (req, res) => {
     if (gstNumber !== undefined) vendor.gstNumber = gstNumber.trim();
     if (contactEmail) vendor.contactEmail = contactEmail.trim().toLowerCase();
     if (contactPhone) vendor.contactPhone = contactPhone.trim();
+    if (address !== undefined) vendor.address = address.trim();
+    if (website !== undefined) vendor.website = website.trim();
+    if (companyBio !== undefined) vendor.companyBio = companyBio.trim();
 
     // Only Admin or Procurement Officer can update status/rating
     if (isAdmin || req.user.role === "Procurement Officer") {

@@ -10,6 +10,9 @@ interface ProfileFormProps {
     gstNumber: string;
     contactEmail: string;
     contactPhone: string;
+    address?: string;
+    website?: string;
+    companyBio?: string;
   };
   onSubmit: (values: any) => Promise<void>;
   saving: boolean;
@@ -31,6 +34,9 @@ export default function ProfileForm({ initialValues, onSubmit, saving }: Profile
   const [gstNumber, setGstNumber] = useState(initialValues.gstNumber || "");
   const [contactEmail, setContactEmail] = useState(initialValues.contactEmail || "");
   const [contactPhone, setContactPhone] = useState(initialValues.contactPhone || "");
+  const [address, setAddress] = useState(initialValues.address || "");
+  const [website, setWebsite] = useState(initialValues.website || "");
+  const [companyBio, setCompanyBio] = useState(initialValues.companyBio || "");
 
   const [errors, setErrors] = useState<any>({});
 
@@ -59,6 +65,16 @@ export default function ProfileForm({ initialValues, onSubmit, saving }: Profile
       }
     }
 
+    if (website.trim()) {
+      // Basic URL check if provided
+      try {
+        const urlStr = website.startsWith("http://") || website.startsWith("https://") ? website : `https://${website}`;
+        new URL(urlStr);
+      } catch {
+        newErrors.website = "Please enter a valid URL.";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -66,13 +82,16 @@ export default function ProfileForm({ initialValues, onSubmit, saving }: Profile
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    
+
     onSubmit({
       companyName: companyName.trim(),
       category,
       gstNumber: gstNumber.trim().toUpperCase(),
       contactEmail: contactEmail.trim().toLowerCase(),
       contactPhone: contactPhone.trim(),
+      address: address.trim(),
+      website: website.trim(),
+      companyBio: companyBio.trim(),
     });
   };
 
@@ -130,6 +149,19 @@ export default function ProfileForm({ initialValues, onSubmit, saving }: Profile
           )}
         </div>
 
+        {/* Website */}
+        <div className="space-y-1.5">
+          <Label htmlFor="website" className="text-xs font-semibold text-gray-600">Corporate Website</Label>
+          <Input
+            id="website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            className={`h-9 text-sm ${errors.website ? "border-red-400 focus-visible:ring-red-400" : "border-gray-200"}`}
+            placeholder="e.g. www.acmesystems.com"
+          />
+          {errors.website && <span className="text-xs text-red-500">{errors.website}</span>}
+        </div>
+
         {/* Contact Email */}
         <div className="space-y-1.5">
           <Label htmlFor="contactEmail" className="text-xs font-semibold text-gray-600">Contact Email</Label>
@@ -144,7 +176,7 @@ export default function ProfileForm({ initialValues, onSubmit, saving }: Profile
         </div>
 
         {/* Contact Phone */}
-        <div className="space-y-1.5 md:col-span-2">
+        <div className="space-y-1.5">
           <Label htmlFor="contactPhone" className="text-xs font-semibold text-gray-600">Contact Phone</Label>
           <Input
             id="contactPhone"
@@ -154,6 +186,32 @@ export default function ProfileForm({ initialValues, onSubmit, saving }: Profile
             placeholder="e.g. +91 98765 43210"
           />
           {errors.contactPhone && <span className="text-xs text-red-500">{errors.contactPhone}</span>}
+        </div>
+
+        {/* Company Bio */}
+        <div className="space-y-1.5 md:col-span-2">
+          <Label htmlFor="companyBio" className="text-xs font-semibold text-gray-600">Company Description / Bio</Label>
+          <textarea
+            id="companyBio"
+            rows={3}
+            value={companyBio}
+            onChange={(e) => setCompanyBio(e.target.value)}
+            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Brief overview of your business, services, or product offerings..."
+          />
+        </div>
+
+        {/* Address */}
+        <div className="space-y-1.5 md:col-span-2">
+          <Label htmlFor="address" className="text-xs font-semibold text-gray-600">Physical Address</Label>
+          <textarea
+            id="address"
+            rows={2}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="e.g. Suite 400, Industrial Area, Sector 5, Bangalore, Karnataka, 560001"
+          />
         </div>
       </div>
 

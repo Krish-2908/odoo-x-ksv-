@@ -19,7 +19,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  
+
   // UI states
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,6 +48,7 @@ export default function Profile() {
 
   const fetchProfile = async (token: string) => {
     try {
+      setErrorMsg("");
       const res = await fetch("http://localhost:8000/api/vendors/my-profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -100,7 +101,26 @@ export default function Profile() {
     if (item.path) navigate(item.path);
   };
 
+  // Profile completeness score calculation
+  const getProfileCompletionScore = (prof: any) => {
+    if (!prof) return 0;
+    const fields = [
+      prof.companyName,
+      prof.category,
+      prof.gstNumber,
+      prof.contactEmail,
+      prof.contactPhone,
+      prof.address,
+      prof.website,
+      prof.companyBio,
+    ];
+    const filled = fields.filter((f) => f && f.toString().trim() !== "").length;
+    return Math.round((filled / fields.length) * 100);
+  };
+
   if (!user) return <LoadingScreen />;
+
+  const completionScore = getProfileCompletionScore(profile);
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
@@ -152,6 +172,25 @@ export default function Profile() {
               status={profile.status}
             />
 
+            {/* Profile Completeness Score Card */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-3">
+              <div className="flex justify-between items-center text-xs font-semibold">
+                <span className="text-gray-500">Profile Completeness</span>
+                <span className="text-blue-600 font-bold">{completionScore}%</span>
+              </div>
+              <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${completionScore}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-450 leading-relaxed">
+                {completionScore < 100
+                  ? "Adding your website, physical address, and business description helps procurement officers verify your capabilities and increases profile credibility."
+                  : "Great job! Your profile details are completely up to date."}
+              </p>
+            </div>
+
             {/* Profile Input Form */}
             <ProfileForm
               initialValues={{
@@ -160,6 +199,9 @@ export default function Profile() {
                 gstNumber: profile.gstNumber,
                 contactEmail: profile.contactEmail,
                 contactPhone: profile.contactPhone,
+                address: profile.address,
+                website: profile.website,
+                companyBio: profile.companyBio,
               }}
               onSubmit={handleProfileSubmit}
               saving={saving}

@@ -21,6 +21,7 @@ import VendorDashboard from "./portals/vendor/pages/VendorDashboard";
 import VendorRFQList from "./portals/vendor/pages/RFQList";
 import VendorRFQDetails from "./portals/vendor/pages/RFQDetails";
 import VendorProfile from "./portals/vendor/pages/Profile";
+import VendorQuotationList from "./portals/vendor/pages/VendorQuotationList";
 
 import ManagerDashboard from "./portals/manager/pages/ManagerDashboard";
 
@@ -88,6 +89,7 @@ function App() {
           <Route path="/vendor/rfqs" element={<VendorRFQList />} />
           <Route path="/vendor/rfqs/:id" element={<VendorRFQDetails />} />
           <Route path="/vendor/profile" element={<VendorProfile />} />
+          <Route path="/vendor/quotations" element={<VendorQuotationList />} />
           <Route path="/vendor/purchase-orders" element={<VendorPOList />} />
           <Route path="/vendor/purchase-orders/:id" element={<VendorPODetails />} />
           <Route path="/vendor/invoices" element={<VendorInvoiceList />} />

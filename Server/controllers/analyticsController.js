@@ -230,3 +230,102 @@ exports.exportAnalyticsCSV = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// @desc    Get vendor's own performance analytics (for Vendor Portal Dashboard)
+// @route   GET /api/analytics/vendor-self
+// @access  Private (Vendor only)
+exports.getVendorSelfAnalytics = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne({ userId: req.user._id });
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: "Vendor profile not found." });
+    }
+
+    // 1. Quotation counts
+    const totalQuotations    = await Quotation.countDocuments({ vendorId: vendor._id });
+    const submittedQuotations= await Quotation.countDocuments({ vendorId: vendor._id, status: "Submitted" });
+    const revisedQuotations  = await Quotation.countDocuments({ vendorId: vendor._id, status: "Revised" });
+    const selectedQuotations = await Quotation.countDocuments({ vendorId: vendor._id, status: "Selected" });
+    const rejectedQuotations = await Quotation.countDocuments({ vendorId: vendor._id, status: "Rejected" });
+    const winRate = totalQuotations > 0 ? Math.round((selectedQuotations / totalQuotations) * 100) : 0;
+
+    // 2. Purchase Orders
+    const totalPOs  = await PurchaseOrder.countDocuments({ vendorId: vendor._id });
+    const activePOs = await PurchaseOrder.countDocuments({ vendorId: vendor._id, status: "Issued" });
+    const paidPOs   = await PurchaseOrder.countDocuments({ vendorId: vendor._id, status: "Paid" });
+
+    // 3. Revenue earned from paid invoices
+    const revenueAgg = await Invoice.aggregate([
+      { $match: { vendorId: vendor._id, status: "Paid" } },
+      { $group: { _id: null, total: { $sum: "$grandTotal" } } },
+    ]);
+    const totalRevenueINR = revenueAgg[0]?.total || 0;
+
+    // 4. Open RFQ invitations count
+    const openRFQCount = await RFQ.countDocuments({
+      assignedVendors: vendor._id,
+      status: "Open",
+    });
+
+    // 5. Recent quotations (latest 5) with RFQ populated
+    const recentQuotations = await Quotation.find({ vendorId: vendor._id })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .populate("rfqId", "title status deadline");
+
+    // 6. Recent RFQ invitations (latest 4)
+    const recentRFQs = await RFQ.find({
+      assignedVendors: vendor._id,
+      status: { $in: ["Open", "Under Review", "Closed", "Completed"] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(4)
+      .populate("createdBy", "firstName lastName");
+
+    // 7. Monthly revenue trend
+    const monthlyRevenueAgg = await Invoice.aggregate([
+      { $match: { vendorId: vendor._id, status: "Paid" } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          total: { $sum: "$grandTotal" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+    const monthlyRevenue = monthlyRevenueAgg.map((item) => ({
+      month: item._id,
+      amount: Number(item.total.toFixed(2)),
+    }));
+
+    res.json({
+      success: true,
+      vendorProfile: {
+        companyName: vendor.companyName,
+        category: vendor.category,
+        rating: vendor.rating,
+        status: vendor.status,
+        gstNumber: vendor.gstNumber,
+        contactEmail: vendor.contactEmail,
+      },
+      metrics: {
+        totalQuotations,
+        submittedQuotations,
+        revisedQuotations,
+        selectedQuotations,
+        rejectedQuotations,
+        winRate,
+        totalPOs,
+        activePOs,
+        paidPOs,
+        totalRevenueINR: Number(totalRevenueINR.toFixed(2)),
+        openRFQCount,
+      },
+      recentQuotations,
+      recentRFQs,
+      monthlyRevenue,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

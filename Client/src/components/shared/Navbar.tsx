@@ -9,12 +9,12 @@ export interface NavItem {
 }
 
 interface NavbarProps {
-  user: {
+  user?: {
     firstName: string;
     lastName: string;
     email: string;
     role: string;
-  };
+  } | null;
   navItems: NavItem[];
   onNavigate?: (item: NavItem) => void;
 }
@@ -82,42 +82,48 @@ export default function Navbar({ user, navItems, onNavigate }: NavbarProps) {
             </button>
 
             {/* User Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu((prev) => !prev)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/10 transition-colors"
-              >
-                <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
-                  {user.firstName[0]}
-                  {user.lastName[0]}
-                </div>
-                <span className="text-sm text-slate-200 hidden sm:block max-w-[120px] truncate">
-                  {user.firstName} {user.lastName}
-                </span>
-                <ChevronDown size={14} className="text-slate-400" />
-              </button>
+            {user && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu((prev) => !prev)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/10 transition-colors"
+                >
+                  <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
+                    {user.firstName?.[0]}
+                    {user.lastName?.[0]}
+                  </div>
+                  <span className="text-sm text-slate-200 hidden sm:block max-w-[120px] truncate">
+                    {user.firstName} {user.lastName}
+                  </span>
+                  <ChevronDown size={14} className="text-slate-400" />
+                </button>
 
-              {showUserMenu && (
-                <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50">
-                  <div className="px-3 py-2.5 border-b border-gray-100">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {user.firstName} {user.lastName}
+                {showUserMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-50">
+                    <div className="px-3 py-2.5 border-b border-gray-100">
+                      <div className="text-sm font-medium text-gray-900 truncate">
+                        {user.firstName} {user.lastName}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {user.email}
+                      </div>
+                      <div className="text-xs text-blue-600 font-medium mt-0.5">
+                        {user.role}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 truncate">{user.email}</div>
-                    <div className="text-xs text-blue-600 font-medium mt-0.5">{user.role}</div>
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut size={14} />
+                        Sign out
+                      </button>
+                    </div>
                   </div>
-                  <div className="py-1">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <LogOut size={14} />
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
