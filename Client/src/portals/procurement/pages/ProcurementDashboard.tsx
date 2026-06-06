@@ -9,7 +9,6 @@ import {
   Plus,
   Building2,
   ArrowLeftRight,
-  Clock,
   TrendingUp,
   Briefcase,
 } from "lucide-react";
@@ -41,6 +40,9 @@ export default function ProcurementDashboard() {
   // Metrics
   const [activeRfqsCount, setActiveRfqsCount] = useState(0);
   const [totalVendorsCount, setTotalVendorsCount] = useState(0);
+  const [awaitingApprovalCount, setAwaitingApprovalCount] = useState(0);
+  const [totalPOsCount, setTotalPOsCount] = useState(0);
+  const [analytics, setAnalytics] = useState<any>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -64,23 +66,25 @@ export default function ProcurementDashboard() {
 
   const fetchDashboardMetrics = async (token: string) => {
     try {
-      // Fetch RFQs
-      const rfqRes = await fetch("http://localhost:8000/api/rfqs", {
+      // Fetch Analytics
+      const analyticsRes = await fetch("http://localhost:8000/api/analytics", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const rfqData = await rfqRes.json();
-      if (rfqRes.status === 200 && rfqData.success) {
-        const openCount = rfqData.rfqs.filter((r: any) => r.status === "Open").length;
-        setActiveRfqsCount(openCount);
+      const analyticsData = await analyticsRes.json();
+      if (analyticsData.success) {
+        setAnalytics(analyticsData);
+        setActiveRfqsCount(analyticsData.metrics.openRFQs);
+        setTotalVendorsCount(analyticsData.metrics.totalVendors);
+        setAwaitingApprovalCount(analyticsData.metrics.reviewRFQs);
       }
 
-      // Fetch Vendors
-      const vendorRes = await fetch("http://localhost:8000/api/vendors", {
+      // Fetch POs
+      const poRes = await fetch("http://localhost:8000/api/purchase-orders", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const vendorData = await vendorRes.json();
-      if (vendorRes.status === 200 && vendorData.success) {
-        setTotalVendorsCount(vendorData.vendors.length);
+      const poData = await poRes.json();
+      if (poRes.ok && poData.success) {
+        setTotalPOsCount(poData.purchaseOrders.length);
       }
     } catch (err) {
       console.error("Failed to load dashboard metrics:", err);
@@ -134,8 +138,8 @@ export default function ProcurementDashboard() {
     },
     {
       label: "Awaiting Approval",
-      value: "0",
-      sub: "Submitted for review",
+      value: awaitingApprovalCount.toString(),
+      sub: `${awaitingApprovalCount} RFQs under review`,
       icon: CheckCircle,
       color: "text-amber-600",
       bg: "bg-amber-50",
@@ -143,14 +147,21 @@ export default function ProcurementDashboard() {
     },
     {
       label: "Purchase Orders",
-      value: "0",
-      sub: "Generated this month",
+      value: totalPOsCount.toString(),
+      sub: `${totalPOsCount} POs processed`,
       icon: ShoppingCart,
       color: "text-violet-600",
       bg: "bg-violet-50",
       border: "border-violet-100",
     },
   ];
+
+  const spendByMonth = analytics?.spendByMonth || [];
+  const spendByCategory = analytics?.spendByCategory || [];
+  const maxMonthAmount = spendByMonth.length > 0 ? Math.max(...spendByMonth.map((d: any) => d.amount)) : 1000;
+  const totalCategorySpend = spendByCategory.reduce((sum: number, c: any) => sum + c.value, 0) || 1;
+
+  const CATEGORY_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6", "#ec4899", "#f59e0b"];
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
@@ -225,8 +236,82 @@ export default function ProcurementDashboard() {
 
         {/* Bottom row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <EmptyState icon={Clock} title="No recent activity" desc="Created RFQs, submitted approvals, and generated POs will appear here." />
-          <EmptyState icon={TrendingUp} title="No spend data" desc="Spend summaries and category breakdowns will appear once POs are created." />
+          {/* Spend Trend Card */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Expenditure Trend Overview</h3>
+                <p className="text-xs text-gray-400">Monthly cleared purchase settlements</p>
+              </div>
+              <button
+                onClick={() => navigate("/procurement/reports")}
+                className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+              >
+                Full Analytics Report &rarr;
+              </button>
+            </div>
+
+            {spendByMonth.length === 0 ? (
+              <EmptyState icon={TrendingUp} title="No spend data" desc="Spend trend will show once purchase orders are settled." />
+            ) : (
+              <div className="h-44 flex items-end justify-between gap-1.5 border-b border-gray-100 pb-2 pt-4">
+                {spendByMonth.slice(-6).map((item: any) => {
+                  const pct = (item.amount / maxMonthAmount) * 100;
+                  return (
+                    <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
+                      <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[9px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-10 shadow">
+                        ${item.amount.toLocaleString()}
+                      </div>
+                      <div
+                        style={{ height: `${pct || 5}%` }}
+                        className="w-full max-w-[28px] rounded-t bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-700 group-hover:to-indigo-500 transition-all"
+                      />
+                      <span className="text-[9px] text-gray-400 mt-1 font-mono">{item.month}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Spend By Category Card */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Top Categories Allocation</h3>
+                <p className="text-xs text-gray-400">Spend breakdown by supplier sector</p>
+              </div>
+              <button
+                onClick={() => navigate("/procurement/reports")}
+                className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+              >
+                Full Analytics Report &rarr;
+              </button>
+            </div>
+
+            {spendByCategory.length === 0 ? (
+              <EmptyState icon={Users} title="No category data" desc="Category metrics will build as suppliers receive payments." />
+            ) : (
+              <div className="space-y-2.5 pt-2">
+                {spendByCategory.slice(0, 3).map((item: any, idx: number) => {
+                  const pct = (item.value / totalCategorySpend) * 100;
+                  const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                  return (
+                    <div key={item.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-medium text-gray-700">
+                        <span className="truncate max-w-[150px]">{item.name}</span>
+                        <span>{pct.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-gray-150 rounded-full overflow-hidden">
+                        <div style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-mono">${item.value.toLocaleString()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

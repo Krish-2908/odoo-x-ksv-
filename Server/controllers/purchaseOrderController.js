@@ -5,6 +5,7 @@ const Vendor = require("../models/Vendor");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const Invoice = require("../models/Invoice");
+const { logActivity } = require("../utils/logger");
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -108,6 +109,12 @@ exports.createPurchaseOrder = async (req, res) => {
       status: "Issued",
       createdBy: req.user._id,
     });
+
+    await logActivity(
+      req.user._id,
+      "PO_GENERATED",
+      `Generated Purchase Order ${purchaseOrder.poNumber} for RFQ: "${rfq.title}"`
+    );
 
     // 8.5. Automatically create Unpaid Invoice for the Purchase Order
     const lastInvoice = await Invoice.findOne().sort({ createdAt: -1 });

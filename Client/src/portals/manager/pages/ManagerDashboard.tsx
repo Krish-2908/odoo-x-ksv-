@@ -38,6 +38,9 @@ export default function ManagerDashboard() {
   const [remarks, setRemarks] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  
+  // Analytics
+  const [analytics, setAnalytics] = useState<any>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -70,6 +73,15 @@ export default function ManagerDashboard() {
         setRfqs(data.rfqs);
       } else {
         setServerError(data.message || "Failed to load requests.");
+      }
+
+      // Fetch analytics
+      const analyticsRes = await fetch("http://localhost:8000/api/analytics", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const analyticsData = await analyticsRes.json();
+      if (analyticsRes.ok && analyticsData.success) {
+        setAnalytics(analyticsData);
       }
     } catch (err) {
       setServerError("Network error. Could not connect to the server.");
@@ -393,6 +405,88 @@ export default function ManagerDashboard() {
             )}
           </div>
         </div>
+
+        {/* Spend & Category Allocation Matrix */}
+        {analytics && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+            {/* Monthly spend graph */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Procurement Budget Trend</h3>
+                  <p className="text-xs text-gray-400">Monthly cleared purchase invoice totals</p>
+                </div>
+                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold border border-blue-100">
+                  USD ($)
+                </span>
+              </div>
+
+              {(() => {
+                const spendByMonth = analytics.spendByMonth || [];
+                const maxMonthAmount = spendByMonth.length > 0 ? Math.max(...spendByMonth.map((d: any) => d.amount)) : 1000;
+                return spendByMonth.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-gray-400">No monthly spend data available.</div>
+                ) : (
+                  <div className="h-40 flex items-end justify-between gap-1.5 border-b border-gray-100 pb-2 pt-4">
+                    {spendByMonth.slice(-6).map((item: any) => {
+                      const pct = (item.amount / maxMonthAmount) * 100;
+                      return (
+                        <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
+                          <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[9px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-10 shadow">
+                            ${item.amount.toLocaleString()}
+                          </div>
+                          <div
+                            style={{ height: `${pct || 5}%` }}
+                            className="w-full max-w-[28px] rounded-t bg-gradient-to-t from-blue-600 to-indigo-400 group-hover:from-blue-700 group-hover:to-indigo-500 transition-all"
+                          />
+                          <span className="text-[9px] text-gray-400 mt-1 font-mono">{item.month}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Category Allocation progress */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Category Resource Share</h3>
+                <p className="text-xs text-gray-400">Allocation breakdown of cleared funds</p>
+              </div>
+
+              {(() => {
+                const spendByCategory = analytics.spendByCategory || [];
+                const totalCategorySpend = spendByCategory.reduce((sum: number, c: any) => sum + c.value, 0) || 1;
+                const CATEGORY_COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6", "#ec4899", "#f59e0b"];
+                return spendByCategory.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-gray-400">No category share data computed.</div>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    {spendByCategory.slice(0, 3).map((item: any, idx: number) => {
+                      const pct = (item.value / totalCategorySpend) * 100;
+                      const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                      return (
+                        <div key={item.name} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
+                            <span className="truncate max-w-[150px]">{item.name}</span>
+                            <span>{pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                            <div style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
+                          </div>
+                          <div className="text-[10px] text-gray-400 font-mono pl-1">
+                            ${item.value.toLocaleString()}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Review Dialog Modal Overlay */}

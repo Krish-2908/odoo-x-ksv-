@@ -1,6 +1,7 @@
 const Quotation = require("../models/Quotation");
 const RFQ = require("../models/RFQ");
 const Vendor = require("../models/Vendor");
+const { logActivity } = require("../utils/logger");
 
 // @desc    Submit or update a quotation (Vendor only)
 // @route   POST /api/quotations
@@ -95,6 +96,7 @@ exports.submitQuotation = async (req, res) => {
       quotation.notes = notes?.trim() || "";
       quotation.status = "Revised";
       await quotation.save();
+      await logActivity(req.user._id, "QUOTE_UPDATED", `Vendor updated quotation $${quotation.grandTotal} for RFQ: "${rfq.title}"`);
     } else {
       // Create new quotation
       quotation = await Quotation.create({
@@ -106,6 +108,7 @@ exports.submitQuotation = async (req, res) => {
         notes: notes?.trim() || "",
         status: "Submitted",
       });
+      await logActivity(req.user._id, "QUOTE_SUBMITTED", `Vendor submitted quotation $${quotation.grandTotal} for RFQ: "${rfq.title}"`);
     }
 
     res.status(200).json({

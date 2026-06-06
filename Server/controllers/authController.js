@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Vendor = require("../models/Vendor");
 const jwt = require("jsonwebtoken");
 const { runValidators, validate } = require("../utils/validators");
+const { logActivity } = require("../utils/logger");
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,8 @@ exports.register = async (req, res) => {
       });
     }
 
+    await logActivity(user._id, "USER_REGISTERED", `New user account registered: ${user.firstName} ${user.lastName} (${role})`);
+
     res.status(201).json({
       success: true,
       user: publicUser(user),
@@ -103,6 +106,8 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (user && (await user.comparePassword(password))) {
+      await logActivity(user._id, "USER_LOGIN", `${user.firstName} ${user.lastName} logged in successfully.`);
+
       res.json({
         success: true,
         user: publicUser(user),

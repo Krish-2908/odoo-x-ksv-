@@ -1,6 +1,7 @@
 const RFQ = require("../models/RFQ");
 const Vendor = require("../models/Vendor");
 const Quotation = require("../models/Quotation");
+const { logActivity } = require("../utils/logger");
 
 // Helper to validate RFQ input
 const validateRFQInput = (data) => {
@@ -86,6 +87,8 @@ exports.createRFQ = async (req, res) => {
       status: status || "Draft",
       createdBy: req.user._id,
     });
+
+    await logActivity(req.user._id, "RFQ_CREATED", `Created RFQ: "${rfq.title}" (${rfq.status})`);
 
     res.status(201).json({
       success: true,
@@ -242,9 +245,16 @@ exports.updateRFQ = async (req, res) => {
     if (description !== undefined) rfq.description = description.trim();
     if (items !== undefined) rfq.items = items;
     if (deadline !== undefined) rfq.deadline = new Date(deadline);
+    const oldStatus = rfq.status;
     if (status !== undefined) rfq.status = status;
 
     await rfq.save();
+
+    if (rfq.status === "Open" && oldStatus === "Draft") {
+      await logActivity(req.user._id, "RFQ_PUBLISHED", `Published RFQ: "${rfq.title}"`);
+    } else {
+      await logActivity(req.user._id, "RFQ_UPDATED", `Updated RFQ details for: "${rfq.title}"`);
+    }
 
     res.json({
       success: true,
@@ -278,7 +288,10 @@ exports.deleteRFQ = async (req, res) => {
       });
     }
 
+    const titleCopy = rfq.title;
     await rfq.deleteOne();
+
+    await logActivity(req.user._id, "RFQ_DELETED", `Deleted RFQ Draft: "${titleCopy}"`);
 
     res.json({
       success: true,
@@ -342,6 +355,12 @@ exports.selectBid = async (req, res) => {
     quotation.status = "Selected";
     await quotation.save();
 
+    await logActivity(
+      req.user._id,
+      "RFQ_BID_SELECTED",
+      `Selected bid proposal $${quotation.grandTotal} for RFQ: "${rfq.title}"`
+    );
+
     res.json({
       success: true,
       message: "Bid selected and submitted for approval successfully.",
@@ -381,6 +400,12 @@ exports.approveRFQ = async (req, res) => {
     });
 
     await rfq.save();
+
+    await logActivity(
+      req.user._id,
+      "RFQ_APPROVED",
+      `Approved RFQ procurement request: "${rfq.title}"`
+    );
 
     res.json({
       success: true,
@@ -438,6 +463,12 @@ exports.rejectRFQ = async (req, res) => {
     });
 
     await rfq.save();
+
+    await logActivity(
+      req.user._id,
+      "RFQ_REJECTED",
+      `Rejected RFQ procurement request: "${rfq.title}". Remarks: "${remarks.trim()}"`
+    );
 
     res.json({
       success: true,

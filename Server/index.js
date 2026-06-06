@@ -18,6 +18,9 @@ const rfqRoutes = require("./routes/rfqRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
+const userRoutes = require("./routes/userRoutes");
+const activityLogRoutes = require("./routes/activityLogRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/vendors", vendorRoutes);
@@ -25,6 +28,9 @@ app.use("/api/rfqs", rfqRoutes);
 app.use("/api/quotations", quotationRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/activity-logs", activityLogRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({

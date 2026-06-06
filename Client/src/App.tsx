@@ -13,6 +13,7 @@ import ProcurementDashboard from "./portals/procurement/pages/ProcurementDashboa
 import ProcurementRFQList from "./portals/procurement/pages/RFQList";
 import ProcurementRFQCreate from "./portals/procurement/pages/RFQCreate";
 import ProcurementRFQDetails from "./portals/procurement/pages/RFQDetails";
+import SpendAnalytics from "./portals/procurement/pages/SpendAnalytics";
 
 import VendorDashboard from "./portals/vendor/pages/VendorDashboard";
 import VendorRFQList from "./portals/vendor/pages/RFQList";
@@ -76,6 +77,7 @@ function App() {
           <Route path="/procurement/purchase-orders/:id" element={<ProcurementPODetails />} />
           <Route path="/procurement/invoices" element={<ProcurementInvoiceList />} />
           <Route path="/procurement/invoices/:id" element={<ProcurementInvoiceDetails />} />
+          <Route path="/procurement/reports" element={<SpendAnalytics />} />
 
           {/* Vendor Portal */}
           <Route path="/vendor" element={<VendorDashboard />} />

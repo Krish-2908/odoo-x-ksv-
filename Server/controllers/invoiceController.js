@@ -3,6 +3,7 @@ const PurchaseOrder = require("../models/PurchaseOrder");
 const Vendor = require("../models/Vendor");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const { logActivity } = require("../utils/logger");
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -167,6 +168,12 @@ exports.verifyInvoicePayment = async (req, res) => {
       await po.save();
     }
 
+    await logActivity(
+      req.user._id,
+      "INVOICE_PAID",
+      `Cleared Invoice ${invoice.invoiceNumber} (Grand Total: $${invoice.grandTotal}) via Razorpay`
+    );
+
     res.json({
       success: true,
       message: "Invoice payment verified and recorded successfully.",
@@ -210,6 +217,12 @@ exports.sendInvoiceEmail = async (req, res) => {
     invoice.emailSent = true;
     invoice.emailSentAt = new Date();
     await invoice.save();
+
+    await logActivity(
+      req.user._id,
+      "INVOICE_EMAILED",
+      `Emailed Invoice ${invoice.invoiceNumber} summary to vendor contact ${invoice.vendorId.contactEmail}`
+    );
 
     res.json({
       success: true,
