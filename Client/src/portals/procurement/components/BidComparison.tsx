@@ -166,7 +166,7 @@ export default function BidComparison({
                   <div>
                     <span className="text-[10px] text-gray-400 block font-medium uppercase">Bid Total</span>
                     <span className="text-base font-black text-gray-900">
-                      ${quote.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      ₹{quote.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div>
@@ -302,10 +302,10 @@ export default function BidComparison({
                                 isLowestLine ? "text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-150" : "text-gray-800"
                               }`}
                             >
-                              ${lineBid.unitPrice.toFixed(2)}
+                              ₹{lineBid.unitPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </span>
                             <span className="block text-[10px] text-gray-450 mt-1">
-                              Total: ${lineBid.totalPrice.toFixed(2)}
+                              Total: ₹{lineBid.totalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                         ) : (
@@ -318,7 +318,7 @@ export default function BidComparison({
               ))}
               <tr className="bg-gray-50/60 font-bold border-t border-gray-200">
                 <td className="py-4 px-4 text-sm text-gray-850" colSpan={2}>
-                  Grand Total Summary (USD)
+                  Grand Total Summary (INR)
                 </td>
                 {quotations.map((quote) => {
                   const isLowest = quote._id === lowestPriceBid._id;
@@ -329,7 +329,7 @@ export default function BidComparison({
                           isLowest ? "text-emerald-700 font-extrabold" : "text-gray-900"
                         }`}
                       >
-                        ${quote.grandTotal.toFixed(2)}
+                        ₹{quote.grandTotal.toFixed(2)}
                       </span>
                     </td>
                   );

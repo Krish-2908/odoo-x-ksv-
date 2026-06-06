@@ -179,7 +179,7 @@ export default function PurchaseOrderList() {
                         {new Date(po.createdAt).toLocaleDateString([], { dateStyle: "medium" })}
                       </td>
                       <td className="py-4 px-4 text-right font-bold text-gray-900 text-sm">
-                        ${po.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        ₹{po.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-4 px-4 text-center">{getStatusBadge(po.status)}</td>
                       <td className="py-4 px-4 text-center">

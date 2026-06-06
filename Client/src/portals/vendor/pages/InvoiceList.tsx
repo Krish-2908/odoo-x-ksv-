@@ -172,7 +172,7 @@ export default function InvoiceList() {
                         </div>
                       </td>
                       <td className="py-4 px-4 text-right font-bold text-gray-900 text-sm">
-                        ${inv.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        ₹{inv.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-4 px-4 text-center">{getStatusBadge(inv.status)}</td>
                       <td className="py-4 px-4 text-center">

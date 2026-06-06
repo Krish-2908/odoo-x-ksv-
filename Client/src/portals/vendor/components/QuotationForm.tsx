@@ -125,7 +125,7 @@ export default function QuotationForm({
 
       {/* Pricing Lines */}
       <div className="space-y-3">
-        <Label className="text-xs font-semibold text-gray-700">Line Pricing (USD)</Label>
+        <Label className="text-xs font-semibold text-gray-700">Line Pricing (INR)</Label>
         <div className="space-y-2.5">
           {rfqItems.map((item) => {
             const hasError = errors.prices && errors.prices[item._id];
@@ -145,7 +145,7 @@ export default function QuotationForm({
 
                 <div className="flex items-center gap-3 mt-1">
                   <div className="relative flex-1">
-                    <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">$</span>
+                    <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">₹</span>
                     <Input
                       placeholder="Unit Price"
                       value={prices[item._id]}
@@ -157,7 +157,7 @@ export default function QuotationForm({
                   </div>
                   <div className="text-right min-w-[70px] shrink-0 text-xs">
                     <span className="text-[10px] text-gray-400 block font-medium">Line Total</span>
-                    <span className="font-bold text-gray-800">${lineTotal.toFixed(2)}</span>
+                    <span className="font-bold text-gray-800">₹{lineTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -169,7 +169,7 @@ export default function QuotationForm({
       {/* Grand Total Summary */}
       <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex items-center justify-between text-xs">
         <span className="font-semibold text-blue-800">Proposal Grand Total</span>
-        <span className="text-sm font-bold text-blue-900">${getGrandTotal().toFixed(2)}</span>
+        <span className="text-sm font-bold text-blue-900">₹{getGrandTotal().toFixed(2)}</span>
       </div>
 
       {/* Timeline details */}

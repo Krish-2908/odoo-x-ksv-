@@ -213,7 +213,7 @@ export default function ManagerDashboard() {
     },
     {
       label: "Total Spend Approved",
-      value: `$${totalSpend.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+      value: `₹${totalSpend.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
       sub: "Cumulative approved value",
       icon: BarChart3,
       color: "text-blue-600",
@@ -334,7 +334,7 @@ export default function ManagerDashboard() {
                           </div>
                         </td>
                         <td className="py-4 px-4 text-right font-bold text-gray-900 text-sm">
-                          ${quote?.grandTotal?.toFixed(2) || "0.00"}
+                          ₹{quote?.grandTotal?.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
                         </td>
                         <td className="py-4 px-4 text-center">
                           <Button
@@ -371,7 +371,7 @@ export default function ManagerDashboard() {
                       </span>
                     </div>
                     <div className="text-right shrink-0 font-bold text-emerald-700">
-                      ${r.selectedQuotation?.grandTotal?.toFixed(2)}
+                      ₹{r.selectedQuotation?.grandTotal?.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
                 ))}
@@ -417,7 +417,7 @@ export default function ManagerDashboard() {
                   <p className="text-xs text-gray-400">Monthly cleared purchase invoice totals</p>
                 </div>
                 <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-bold border border-blue-100">
-                  USD ($)
+                  INR (₹)
                 </span>
               </div>
 
@@ -433,7 +433,7 @@ export default function ManagerDashboard() {
                       return (
                         <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
                           <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[9px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-10 shadow">
-                            ${item.amount.toLocaleString()}
+                            ₹{item.amount.toLocaleString("en-IN")}
                           </div>
                           <div
                             style={{ height: `${pct || 5}%` }}
@@ -476,7 +476,7 @@ export default function ManagerDashboard() {
                             <div style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
                           </div>
                           <div className="text-[10px] text-gray-400 font-mono pl-1">
-                            ${item.value.toLocaleString()}
+                            ₹{item.value.toLocaleString("en-IN")}
                           </div>
                         </div>
                       );
@@ -550,7 +550,7 @@ export default function ManagerDashboard() {
                     <div className="text-right sm:text-right shrink-0">
                       <span className="text-[9px] text-gray-400 font-bold block uppercase tracking-wider">Proposed Bid</span>
                       <span className="text-lg font-black text-gray-900">
-                        ${selectedRfq.selectedQuotation?.grandTotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        ₹{selectedRfq.selectedQuotation?.grandTotal?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -611,7 +611,7 @@ export default function ManagerDashboard() {
                               </td>
                               <td className="py-2.5 px-3 text-center text-amber-600 font-bold">⭐ {alt.vendorId?.rating?.toFixed(1)}</td>
                               <td className="py-2.5 px-3 text-gray-600">{alt.deliveryTimeline}</td>
-                              <td className="py-2.5 px-3 text-right font-bold text-gray-900">${alt.grandTotal?.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-right font-bold text-gray-900">₹{alt.grandTotal?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
                             </tr>
                           );
                         })}

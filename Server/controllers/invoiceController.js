@@ -11,7 +11,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET?.trim() || "",
 });
 
-const USD_TO_INR = 83; // Standard conversion rate
+const USD_TO_INR = 1; // Natively using INR (no conversion required)
 
 // @desc    Get all Invoices (filtered by role)
 // @route   GET /api/invoices
@@ -93,7 +93,7 @@ exports.createRazorpayOrderForInvoice = async (req, res) => {
       return res.status(400).json({ message: "This Invoice has already been paid." });
     }
 
-    // Convert Invoice USD amount to INR paise
+    // Convert Invoice INR amount to paise
     const amountInINR = invoice.grandTotal * USD_TO_INR;
     const amountInPaise = Math.round(amountInINR * 100);
 

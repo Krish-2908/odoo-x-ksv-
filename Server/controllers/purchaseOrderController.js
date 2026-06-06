@@ -13,7 +13,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET?.trim() || "",
 });
 
-const USD_TO_INR = 83; // Conversion rate for Razorpay integration
+const USD_TO_INR = 1; // Natively using INR (no conversion required)
 
 // @desc    Generate Purchase Order from Approved RFQ Selection
 // @route   POST /api/purchase-orders
@@ -239,7 +239,7 @@ exports.createRazorpayOrder = async (req, res) => {
       return res.status(400).json({ message: "This Purchase Order has already been paid." });
     }
 
-    // Convert PO USD amount to INR paise (1 USD = 83 INR)
+    // Convert PO INR amount to paise
     const amountInINR = po.grandTotal * USD_TO_INR;
     const amountInPaise = Math.round(amountInINR * 100);
 

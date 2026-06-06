@@ -26,7 +26,7 @@ exports.getAnalyticsStats = async (req, res) => {
       { $match: { status: "Paid" } },
       { $group: { _id: null, total: { $sum: "$grandTotal" } } },
     ]);
-    const totalSpendUSD = paidInvoicesSumAgg[0]?.total || 0;
+    const totalSpendINR = paidInvoicesSumAgg[0]?.total || 0;
 
     // 3. Spend by Month (Paid Invoices grouped by month)
     const monthlySpendAgg = await Invoice.aggregate([
@@ -102,7 +102,8 @@ exports.getAnalyticsStats = async (req, res) => {
         completedRFQs,
         paidInvoicesCount,
         unpaidInvoicesCount,
-        totalSpendUSD: Number(totalSpendUSD.toFixed(2)),
+        totalSpendUSD: Number(totalSpendINR.toFixed(2)),
+        totalSpendINR: Number(totalSpendINR.toFixed(2)),
       },
       spendByMonth,
       spendByCategory,

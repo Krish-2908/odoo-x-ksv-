@@ -260,7 +260,7 @@ export default function ProcurementDashboard() {
                   return (
                     <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
                       <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[9px] py-0.5 px-1.5 rounded pointer-events-none whitespace-nowrap z-10 shadow">
-                        ${item.amount.toLocaleString()}
+                        ₹{item.amount.toLocaleString("en-IN")}
                       </div>
                       <div
                         style={{ height: `${pct || 5}%` }}
@@ -305,7 +305,7 @@ export default function ProcurementDashboard() {
                       <div className="h-1.5 w-full bg-gray-150 rounded-full overflow-hidden">
                         <div style={{ width: `${pct}%`, backgroundColor: color }} className="h-full rounded-full" />
                       </div>
-                      <span className="text-[10px] text-gray-400 font-mono">${item.value.toLocaleString()}</span>
+                      <span className="text-[10px] text-gray-400 font-mono">₹{item.value.toLocaleString("en-IN")}</span>
                     </div>
                   );
                 })}

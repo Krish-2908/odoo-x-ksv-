@@ -362,16 +362,16 @@ export default function PurchaseOrderDetails() {
                         <th className="py-2.5 px-4 font-semibold">Product Name</th>
                         <th className="py-2.5 px-4 font-semibold text-center w-[80px]">Quantity</th>
                         <th className="py-2.5 px-4 font-semibold text-right w-[120px]">Unit Price</th>
-                        <th className="py-2.5 px-4 font-semibold text-right w-[140px]">Line Total (USD)</th>
+                         <th className="py-2.5 px-4 font-semibold text-right w-[140px]">Line Total (INR)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {po.items.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-gray-50/20">
                           <td className="py-3 px-4 font-semibold text-gray-800">{item.productName}</td>
-                          <td className="py-3 px-4 text-center text-gray-650 font-medium">{item.quantity}</td>
-                          <td className="py-3 px-4 text-right text-gray-700">${item.unitPrice.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right font-bold text-gray-900">${item.totalPrice.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-center text-gray-655 font-medium">{item.quantity}</td>
+                          <td className="py-3 px-4 text-right text-gray-700">₹{item.unitPrice.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right font-bold text-gray-900">₹{item.totalPrice.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -384,16 +384,16 @@ export default function PurchaseOrderDetails() {
                 <div className="w-full sm:w-[320px] bg-gray-50/50 border border-gray-150/60 rounded-xl p-4 space-y-2.5 text-xs">
                   <div className="flex justify-between items-center text-gray-500">
                     <span>Subtotal:</span>
-                    <span className="font-semibold text-gray-800">${po.subtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">₹{po.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center text-gray-500">
                     <span>Estimated GST ({po.taxRate}%):</span>
-                    <span className="font-semibold text-gray-800">${po.taxAmount.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">₹{po.taxAmount.toFixed(2)}</span>
                   </div>
                   <div className="border-t border-gray-200/80 pt-2 flex justify-between items-center text-sm font-bold text-gray-900">
                     <span>Grand Total:</span>
                     <span>
-                      ${po.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      ₹{po.grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

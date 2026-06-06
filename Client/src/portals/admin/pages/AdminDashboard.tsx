@@ -497,7 +497,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-900">
-                    ${analytics?.metrics?.totalSpendUSD?.toLocaleString() || "0.00"}
+                    ₹{(analytics?.metrics?.totalSpendINR || analytics?.metrics?.totalSpendUSD)?.toLocaleString("en-IN") || "0.00"}
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">Cleared via Razorpay</div>
                 </div>

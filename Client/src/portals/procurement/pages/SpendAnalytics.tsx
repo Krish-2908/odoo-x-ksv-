@@ -8,7 +8,7 @@ import {
   PieChart,
   Award,
   ArrowLeft,
-  DollarSign,
+  IndianRupee,
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
@@ -84,6 +84,7 @@ export default function SpendAnalytics() {
     completedRFQs: 0,
     paidInvoicesCount: 0,
     unpaidInvoicesCount: 0,
+    totalSpendINR: 0,
     totalSpendUSD: 0,
   };
   const spendByMonth = analytics?.spendByMonth || [];
@@ -145,11 +146,11 @@ export default function SpendAnalytics() {
           <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between text-gray-500">
               <span className="text-xs font-semibold uppercase tracking-wider">Total Amount Spent</span>
-              <DollarSign size={18} className="text-blue-600" />
+              <IndianRupee size={18} className="text-blue-600" />
             </div>
             <div className="mt-4">
               <div className="text-2xl font-black text-gray-900">
-                ${metrics.totalSpendUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{(metrics.totalSpendINR || metrics.totalSpendUSD).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <p className="text-xs text-gray-400 mt-1">Sum of all paid invoice settlements</p>
             </div>
@@ -204,7 +205,7 @@ export default function SpendAnalytics() {
                 <h3 className="text-sm font-bold text-gray-900">Monthly Expenditure Trend</h3>
                 <p className="text-xs text-gray-400">Paid procurement spend over calendar months</p>
               </div>
-              <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">USD ($)</span>
+              <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">INR (₹)</span>
             </div>
 
             {/* Pure SVG Bar Chart */}
@@ -220,7 +221,7 @@ export default function SpendAnalytics() {
                     <div key={item.month} className="flex-1 flex flex-col items-center group relative cursor-pointer">
                       {/* Tooltip on hover */}
                       <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[10px] py-1 px-2 rounded pointer-events-none whitespace-nowrap z-10 shadow-lg">
-                        ${item.amount.toLocaleString()}
+                        ₹{item.amount.toLocaleString("en-IN")}
                       </div>
                       {/* Bar fill */}
                       <div
@@ -304,7 +305,7 @@ export default function SpendAnalytics() {
                           />
                         </div>
                         <div className="text-[10px] text-gray-400 font-mono pl-3">
-                          ${item.value.toLocaleString()}
+                          ₹{item.value.toLocaleString("en-IN")}
                         </div>
                       </div>
                     );
