@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2, TrendingUp, ShieldCheck, Globe2, BarChart3 } from "lucide-react";
+import { Eye, EyeOff, Loader2, TrendingUp, ShieldCheck, Globe2, BarChart3, AlertCircle } from "lucide-react";
 
 const STATS = [
   { icon: Globe2, value: "12,000+", label: "Active Vendors" },
@@ -11,22 +11,46 @@ const STATS = [
   { icon: TrendingUp, value: "98.6%", label: "On-time Delivery" },
 ];
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <p className="flex items-center gap-1 text-xs text-red-600 mt-1">
+      <AlertCircle size={12} />{msg}
+    </p>
+  );
+}
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
+
+  const validateField = (name: string, value: string) => {
+    let msg = "";
+    if (name === "email") {
+      if (!value.trim()) msg = "Email address is required.";
+      else if (!EMAIL_RE.test(value.trim())) msg = "Enter a valid email address.";
+    }
+    if (name === "password") {
+      if (!value) msg = "Password is required.";
+    }
+    setFieldErrors((prev) => ({ ...prev, [name]: msg }));
+    return !msg;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
-      setError("Please fill in all fields.");
-      return;
-    }
+    const emailOk = validateField("email", email);
+    const passOk  = validateField("password", password);
+    if (!emailOk || !passOk) return;
 
     setIsLoading(true);
     try {
@@ -36,7 +60,11 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Invalid credentials.");
+      if (!response.ok) {
+        // Backend may return field-level errors
+        if (data.errors) setFieldErrors(data.errors);
+        throw new Error(data.message || "Invalid credentials.");
+      }
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       navigate("/");
@@ -149,7 +177,7 @@ export default function Login() {
               </div>
             )}
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                 Work email
               </Label>
@@ -159,20 +187,23 @@ export default function Login() {
                 autoComplete="email"
                 placeholder="you@company.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                required
+                onChange={(e) => { setEmail(e.target.value); if (fieldErrors.email) validateField("email", e.target.value); }}
+                onBlur={(e) => validateField("email", e.target.value)}
+                className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-blue-500 rounded-lg text-sm ${
+                  fieldErrors.email ? "border-red-400 focus:border-red-400" : "border-gray-300 focus:border-blue-500"
+                }`}
               />
+              <FieldError msg={fieldErrors.email} />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                   Password
                 </Label>
-                <a href="#" className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                <Link to="/forgot-password" className="text-xs text-blue-600 hover:text-blue-700 font-medium">
                   Forgot password?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Input
@@ -181,9 +212,11 @@ export default function Login() {
                   autoComplete="current-password"
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 pr-10 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                  required
+                  onChange={(e) => { setPassword(e.target.value); if (fieldErrors.password) validateField("password", e.target.value); }}
+                  onBlur={(e) => validateField("password", e.target.value)}
+                  className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 pr-10 focus:ring-blue-500 rounded-lg text-sm ${
+                    fieldErrors.password ? "border-red-400 focus:border-red-400" : "border-gray-300 focus:border-blue-500"
+                  }`}
                 />
                 <button
                   type="button"
@@ -194,6 +227,7 @@ export default function Login() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              <FieldError msg={fieldErrors.password} />
             </div>
 
             <Button

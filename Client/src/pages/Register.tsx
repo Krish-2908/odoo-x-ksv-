@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, EyeOff, Loader2, ShieldCheck, Lock, Users, FileCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, Lock, Users, FileCheck, AlertCircle } from "lucide-react";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[\d\s\-().]{10,20}$/;
+const NAME_RE  = /^[a-zA-Z\s'-]+$/;
+
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <p className="flex items-center gap-1 text-xs text-red-600 mt-1">
+      <AlertCircle size={12} className="shrink-0" />{msg}
+    </p>
+  );
+}
+
+function calcStrength(pwd: string): { score: number; label: string; color: string; bg: string } {
+  if (!pwd) return { score: 0, label: "", color: "", bg: "bg-gray-200" };
+  let score = 0;
+  if (pwd.length >= 8)       score++;
+  if (/[A-Z]/.test(pwd))    score++;
+  if (/[a-z]/.test(pwd))    score++;
+  if (/[0-9]/.test(pwd))    score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  if (score <= 2) return { score, label: "Weak",   color: "text-red-600",    bg: "bg-red-500" };
+  if (score === 3) return { score, label: "Fair",   color: "text-amber-600",  bg: "bg-amber-400" };
+  if (score === 4) return { score, label: "Good",   color: "text-blue-600",   bg: "bg-blue-500" };
+  return              { score, label: "Strong", color: "text-emerald-600", bg: "bg-emerald-500" };
+}
 
 const PLATFORM_FEATURES = [
   {
@@ -41,27 +68,73 @@ export default function Register() {
     additionalInfo: "",
     password: "",
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const strength = useMemo(() => calcStrength(formData.password), [formData.password]);
+
+  const validateField = (name: string, value: string): boolean => {
+    let msg = "";
+    if (name === "firstName" || name === "lastName") {
+      const label = name === "firstName" ? "First" : "Last";
+      if (!value.trim()) msg = `${label} name is required.`;
+      else if (value.trim().length < 2) msg = `${label} name must be at least 2 characters.`;
+      else if (!NAME_RE.test(value.trim())) msg = `${label} name can only contain letters.`;
+    }
+    if (name === "email") {
+      if (!value.trim()) msg = "Email address is required.";
+      else if (!EMAIL_RE.test(value.trim())) msg = "Enter a valid email address.";
+    }
+    if (name === "phone") {
+      if (!value.trim()) msg = "Phone number is required.";
+      else if (!PHONE_RE.test(value.trim())) msg = "Enter a valid phone number (10+ digits).";
+    }
+    if (name === "role")    { if (!value) msg = "Please select a role."; }
+    if (name === "country") {
+      if (!value.trim()) msg = "Country is required.";
+      else if (value.trim().length < 2) msg = "Country must be at least 2 characters.";
+    }
+    if (name === "password") {
+      if (!value) msg = "Password is required.";
+      else if (value.length < 8) msg = "Password must be at least 8 characters.";
+      else if (!/[A-Z]/.test(value)) msg = "Include at least one uppercase letter.";
+      else if (!/[a-z]/.test(value)) msg = "Include at least one lowercase letter.";
+      else if (!/[0-9]/.test(value)) msg = "Include at least one number.";
+    }
+    setFieldErrors((prev) => ({ ...prev, [name]: msg }));
+    return !msg;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.id]: e.target.value }));
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+    if (fieldErrors[id]) validateField(id, value); // re-validate on change if already touched
   };
 
   const handleRoleChange = (value: string) => {
     setFormData((prev) => ({ ...prev, role: value }));
+    if (fieldErrors.role) validateField("role", value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const { firstName, lastName, email, phone, role, country, password } = formData;
-    if (!firstName || !lastName || !email || !phone || !role || !country || !password) {
-      setError("Please fill in all required fields.");
-      return;
-    }
+    // Validate all required fields
+    const fields: [string, string][] = [
+      ["firstName", formData.firstName],
+      ["lastName",  formData.lastName],
+      ["email",     formData.email],
+      ["phone",     formData.phone],
+      ["role",      formData.role],
+      ["country",   formData.country],
+      ["password",  formData.password],
+    ];
+    const results = fields.map(([name, val]) => validateField(name, val));
+    if (results.some((ok) => !ok)) return;
+
     setIsLoading(true);
     try {
       const response = await fetch("http://localhost:8000/api/auth/register", {
@@ -70,7 +143,10 @@ export default function Register() {
         body: JSON.stringify(formData),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Registration failed.");
+      if (!response.ok) {
+        if (data.errors) setFieldErrors(data.errors);
+        throw new Error(data.message || "Registration failed.");
+      }
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       navigate("/");
@@ -184,7 +260,7 @@ export default function Register() {
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Personal Information</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
                         First name <span className="text-red-500">*</span>
                       </Label>
@@ -194,11 +270,14 @@ export default function Register() {
                         placeholder="John"
                         value={formData.firstName}
                         onChange={handleChange}
-                        className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                        required
+                        onBlur={(e) => validateField("firstName", e.target.value)}
+                        className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-blue-500 rounded-lg text-sm ${
+                          fieldErrors.firstName ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                        }`}
                       />
+                      <FieldError msg={fieldErrors.firstName} />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
                         Last name <span className="text-red-500">*</span>
                       </Label>
@@ -208,14 +287,17 @@ export default function Register() {
                         placeholder="Doe"
                         value={formData.lastName}
                         onChange={handleChange}
-                        className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                        required
+                        onBlur={(e) => validateField("lastName", e.target.value)}
+                        className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-blue-500 rounded-lg text-sm ${
+                          fieldErrors.lastName ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                        }`}
                       />
+                      <FieldError msg={fieldErrors.lastName} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                         Work email <span className="text-red-500">*</span>
                       </Label>
@@ -225,11 +307,14 @@ export default function Register() {
                         placeholder="john@company.com"
                         value={formData.email}
                         onChange={handleChange}
-                        className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                        required
+                        onBlur={(e) => validateField("email", e.target.value)}
+                        className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-blue-500 rounded-lg text-sm ${
+                          fieldErrors.email ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                        }`}
                       />
+                      <FieldError msg={fieldErrors.email} />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
                         Phone number <span className="text-red-500">*</span>
                       </Label>
@@ -239,9 +324,12 @@ export default function Register() {
                         placeholder="+91 98765 43210"
                         value={formData.phone}
                         onChange={handleChange}
-                        className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                        required
+                        onBlur={(e) => validateField("phone", e.target.value)}
+                        className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-blue-500 rounded-lg text-sm ${
+                          fieldErrors.phone ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                        }`}
                       />
+                      <FieldError msg={fieldErrors.phone} />
                     </div>
                   </div>
                 </div>
@@ -253,14 +341,16 @@ export default function Register() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="role" className="text-sm font-medium text-gray-700">
                         System role <span className="text-red-500">*</span>
                       </Label>
                       <Select onValueChange={handleRoleChange} value={formData.role}>
                         <SelectTrigger
                           id="role"
-                          className="h-10 w-full border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm data-placeholder:text-gray-400"
+                          className={`h-10 w-full bg-white text-gray-900 focus:ring-blue-500 rounded-lg text-sm data-placeholder:text-gray-400 ${
+                            fieldErrors.role ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                          }`}
                         >
                           <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
@@ -271,8 +361,9 @@ export default function Register() {
                           <SelectItem value="Admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+                      <FieldError msg={fieldErrors.role} />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="country" className="text-sm font-medium text-gray-700">
                         Country <span className="text-red-500">*</span>
                       </Label>
@@ -282,18 +373,19 @@ export default function Register() {
                         placeholder="India"
                         value={formData.country}
                         onChange={handleChange}
-                        className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                        required
+                        onBlur={(e) => validateField("country", e.target.value)}
+                        className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-blue-500 rounded-lg text-sm ${
+                          fieldErrors.country ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                        }`}
                       />
+                      <FieldError msg={fieldErrors.country} />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                        Password <span className="text-red-500">*</span>
-                      </Label>
-                    </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                      Password <span className="text-red-500">*</span>
+                    </Label>
                     <div className="relative">
                       <Input
                         id="password"
@@ -301,8 +393,10 @@ export default function Register() {
                         placeholder="Minimum 8 characters"
                         value={formData.password}
                         onChange={handleChange}
-                        className="h-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 pr-10 focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm"
-                        required
+                        onBlur={(e) => validateField("password", e.target.value)}
+                        className={`h-10 bg-white text-gray-900 placeholder:text-gray-400 pr-10 focus:ring-blue-500 rounded-lg text-sm ${
+                          fieldErrors.password ? "border-red-400" : "border-gray-300 focus:border-blue-500"
+                        }`}
                       />
                       <button
                         type="button"
@@ -313,6 +407,18 @@ export default function Register() {
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {/* Password strength meter */}
+                    {formData.password && (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <div key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= strength.score ? strength.bg : "bg-gray-200"}`} />
+                          ))}
+                        </div>
+                        <p className={`text-xs font-medium ${strength.color}`}>{strength.label} password</p>
+                      </div>
+                    )}
+                    <FieldError msg={fieldErrors.password} />
                   </div>
                 </div>
 
